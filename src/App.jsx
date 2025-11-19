@@ -38,29 +38,21 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
-// --- Firebase Init (GitHub Uyumlu Güncelleme) ---
-// Canvas ortamı değişkenlerini kontrol et. Yerel ortamda bunlar 'undefined' olacaktır.
-const canvasConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-const canvasToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'fifa-hub-v4';
-
-// Yerel çalıştırma için (API anahtarlarınızı buraya eklemeniz GEREKİR)
-// Eğer bu kod yerelinizde çalışmıyorsa, aşağıdaki 'mock' değerlerini kendi Firebase projenizin 
-// gerçek yapılandırma değerleriyle DEĞİŞTİRMELİSİNİZ.
-const mockFirebaseConfig = {
-    apiKey: "MOCK_API_KEY", // Kendi anahtarınızla değiştirin!
-    authDomain: "mock-project.firebaseapp.com",
-    projectId: "mock-project",
-    storageBucket: "mock-project.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:1234567890:web:mock12345"
+// --- Firebase Init ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCPSY_tZc3eZW4YU3YK0eTeia6bD2823Ew",
+  authDomain: "turnuva-a53f0.firebaseapp.com",
+  projectId: "turnuva-a53f0",
+  storageBucket: "turnuva-a53f0.firebasestorage.app",
+  messagingSenderId: "1045868018736",
+  appId: "1:1045868018736:web:d339e491cd799cec60c1f5",
+  measurementId: "G-TFVDQC69FT"
 };
 
-const firebaseConfig = canvasConfig || mockFirebaseConfig;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = canvasAppId;
+const appId = 'fifa-hub-v4';
 
 
 // --- Yardımcı Fonksiyonlar ---
