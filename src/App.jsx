@@ -157,22 +157,34 @@ export default function App() {
 
   // --- Actions ---
   const createTournament = async (name) => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      console.error("Create tournament failed: User is not admin");
+      return;
+    }
+    
     try {
+        console.log("Creating tournament with name:", name);
         const newId = generateId();
         const newMeta = { id: newId, name: name || 'Yeni Turnuva', createdAt: new Date().toISOString(), status: 'Hazırlık' };
         const newRegistry = [newMeta, ...registry];
         
-        // Hata toleransı ekleyelim
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'registry'), { list: newRegistry }).catch(error => {
+        console.log("New registry data:", newRegistry);
+        
+        // Registry oluşturma
+        const registryRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'registry');
+        await setDoc(registryRef, { list: newRegistry }).catch(error => {
           console.error("Registry creation error:", error);
+          console.error("Registry ref path:", registryRef.path);
           throw error;
         });
         
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', `t_${newId}`), {
+        // Turnuva dokümanı oluşturma
+        const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', `t_${newId}`);
+        await setDoc(tournamentRef, {
           players: [], matches: [], settings: { started: false, name: name }
         }).catch(error => {
           console.error("Tournament creation error:", error);
+          console.error("Tournament ref path:", tournamentRef.path);
           throw error;
         });
         
