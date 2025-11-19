@@ -99,28 +99,24 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (canvasToken) {
-           // 1. Canvas ortamı tokeni varsa bunu kullan
-           await signInWithCustomToken(auth, canvasToken);
+        // Sadece gerçek token varsa onu kullan, yoksa anonim giriş
+        if (typeof window !== 'undefined' && window.__initial_auth_token) {
+          await signInWithCustomToken(auth, window.__initial_auth_token);
         } else {
-           // 2. Yoksa (yerel ortam), anonim olarak giriş yap
-           console.warn("Canvas ortamı değişkenleri (Token) bulunamadı. Anonim olarak giriş yapılıyor. (Yerel çalıştırma modu)");
-           await signInAnonymously(auth);
+          await signInAnonymously(auth);
         }
       } catch (error) {
-        // Mock config kullanıldıysa, auth hatası alabiliriz.
-        console.error("Firebase Auth Hatası:", error);
+        console.error("Firebase Auth Error:", error);
+        // Hata durumunda anonim giriş denemesi
+        try {
+          await signInAnonymously(auth);
+        } catch (anonError) {
+          console.error("Anonymous sign-in failed:", anonError);
+        }
       }
     };
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      // Eğer mock config kullanıldıysa ve giriş başarısız olduysa, loading'i kapat
-      if (!currentUser && !canvasConfig) {
-         setLoading(false);
-         console.error("UYARI: Firebase yapılandırması başarısız oldu. Lütfen App.jsx dosyasındaki mockFirebaseConfig yerine kendi Firebase anahtarlarınızı girin.");
-      }
-    });
+    const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
@@ -167,13 +163,23 @@ export default function App() {
         const newMeta = { id: newId, name: name || 'Yeni Turnuva', createdAt: new Date().toISOString(), status: 'Hazırlık' };
         const newRegistry = [newMeta, ...registry];
         
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'registry'), { list: newRegistry });
+        // Hata toleransı ekleyelim
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'registry'), { list: newRegistry }).catch(error => {
+          console.error("Registry creation error:", error);
+          throw error;
+        });
+        
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', `t_${newId}`), {
           players: [], matches: [], settings: { started: false, name: name }
+        }).catch(error => {
+          console.error("Tournament creation error:", error);
+          throw error;
         });
+        
         console.log(`Tournament ${name} created successfully.`);
     } catch (e) {
-        console.error("Turnuva oluşturma hatası:", e);
+        console.error("Error creating tournament:", e);
+        alert("Turnuva oluşturulurken bir hata oluştu. Lütfen konsolu kontrol edin.");
     }
   };
 
