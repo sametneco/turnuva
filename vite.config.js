@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   base: '/turnuva/',
   build: {
-    rollupOptions: {
-      external: ['firebase']
-    }
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false
   }
 })
