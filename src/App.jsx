@@ -39,14 +39,14 @@ import {
 } from 'lucide-react';
 
 // --- Firebase Init ---
-// Bu değerleri kendi Firebase konfigürasyonunuzla değiştirmeniz gerekiyor
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCPSY_tZc3eZW4YU3YK0eTeia6bD2823Ew",
+  authDomain: "turnuva-a53f0.firebaseapp.com",
+  projectId: "turnuva-a53f0",
+  storageBucket: "turnuva-a53f0.firebasestorage.app",
+  messagingSenderId: "1045868018736",
+  appId: "1:1045868018736:web:d339e491cd799cec60c1f5",
+  measurementId: "G-TFVDQC69FT"
 };
 
 const app = initializeApp(firebaseConfig);
