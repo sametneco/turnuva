@@ -30,3 +30,15 @@ body {
     background-color: #ffffff;
   }
 }
+
+/* Live News Ticker Animation */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 45s linear infinite; /* Even slower animation from 35s to 45s */
+  display: flex;
+  width: max-content;
+}

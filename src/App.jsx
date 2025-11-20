@@ -35,7 +35,9 @@ import {
   Minus,
   Edit3,
   Settings,
-  AlertTriangle
+  AlertTriangle,
+  Check,
+  Star
 } from 'lucide-react';
 
 // --- Firebase Init ---
@@ -361,7 +363,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
         </div>
 
         {!isAdmin && (
-          <div className="mb-6 bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex gap-2 items-center">
+          <div className="mb-6 bg-slate-950/50 p-4 rounded-xl border border-slate-800 flex gap-2 items-center">
             <Lock size={16} className="text-slate-500" />
             <input id="adminPinInput" type="password" placeholder="Yönetici PIN" value={adminPin} onChange={(e) => setAdminPin(e.target.value)} className="bg-transparent border-none text-sm text-white placeholder:text-slate-600 focus:ring-0 w-full outline-none" />
             <button onClick={handleAdminLogin} className="text-xs bg-slate-800 px-3 py-1 rounded text-slate-300">Giriş</button>
@@ -431,6 +433,9 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
   const [editNameMode, setEditNameMode] = useState(false);
   const [tempName, setTempName] = useState('');
 
+  // Skor düzenleme modu için state
+  const [scoreEditMode, setScoreEditMode] = useState({});
+
   // Modal State
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
@@ -478,17 +483,615 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
     });
     return stats.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
   }, [players, matches]);
+  
+    // --- Son 5 Maç Fonksiyonu ---
+    const getLastFiveMatches = (playerId) => {
+      // Oyuncunun katıldığı tüm maçları bul
+      const playerMatches = matches
+        .filter(match => match.played && (match.home === playerId || match.away === playerId))
+        .sort((a, b) => new Date(b.updatedAt || b.playedAt || 0) - new Date(a.updatedAt || a.playedAt || 0))
+        .slice(0, 5);
+      
+      // Her maç için detaylı bilgi oluştur
+      return playerMatches.map(match => {
+        const isHome = match.home === playerId;
+        const opponentId = isHome ? match.away : match.home;
+        const opponent = players.find(p => p.id === opponentId);
+        const playerScore = isHome ? parseInt(match.homeScore) : parseInt(match.awayScore);
+        const opponentScore = isHome ? parseInt(match.awayScore) : parseInt(match.homeScore);
+        
+        let result = '';
+        if (playerScore > opponentScore) result = 'W';
+        else if (playerScore < opponentScore) result = 'L';
+        else result = 'D';
+        
+        return {
+          id: match.id,
+          opponent: opponent ? opponent.name : 'Bilinmeyen',
+          opponentTeam: opponent ? opponent.team : '',
+          isHome,
+          playerScore,
+          opponentScore,
+          result,
+          date: match.updatedAt || match.playedAt
+        };
+      });
+    };
+
+  // --- Live News Logic ---
+  const liveNews = useMemo(() => {
+    const news = [];
+    
+    // Fun emojis and icons for different events
+    const emojis = {
+      goal: ['⚽', '🥅', '⚡', '🎯'],
+      win: ['🔥', '💪', '🏆', '👑'],
+      streak: ['🧨', '☄️', '🌪️', '🌋'],
+      rise: ['🚀', '📈', '🌟', '✨'],
+      close: ['🤝', '⚔️', '🤼', '🎪'],
+      upset: ['🤯', '😱', '💥', '💣'],
+      cleanSheet: ['🛡️', '🧼', '✨', '💎']
+    };
+    
+    // Get random emoji from category
+    const getRandomEmoji = (category) => {
+      const emojiList = emojis[category] || ['📢', '📰', '📺'];
+      return emojiList[Math.floor(Math.random() * emojiList.length)];
+    };
+    
+    // En son oynanan maçlar
+    const playedMatches = matches.filter(m => m.played);
+    
+    // Turnuva yeni başlamışsa (az sayıda maç varsa) genel duyurular yap
+    if (playedMatches.length > 0 && playedMatches.length <= 2) {
+      // Turnuva başlangıç haberleri
+      const startMessages = [
+        "🏆 Turnuva başladı! İlk maçlar heyecan verici!",
+        "⚽ Lig başladı, kim şampiyon olacak?",
+        "🔥 Turnuva alev aldı, maçlar kızışıyor!",
+        "🎯 Lig başladı, hedef şampiyonluk!",
+        "⚔️ Rekabet başladı, kim üstünlüğü elde edecek?"
+      ];
+      
+      const randomMessage = startMessages[Math.floor(Math.random() * startMessages.length)];
+      news.push({
+        id: 'start_message',
+        type: 'start',
+        text: `📣 ${randomMessage}`,
+        time: 'Başlangıç'
+      });
+    }
+    
+    // Yeterli sayıda maç oynandıysa detaylı analizler yap
+    if (playedMatches.length > 0 && playedMatches.length > 2) {
+      // En son 3 maçı al
+      const recentMatches = playedMatches
+        .sort((a, b) => new Date(b.updatedAt || b.playedAt || 0) - new Date(a.updatedAt || a.playedAt || 0))
+        .slice(0, 3);
+      
+      recentMatches.forEach(match => {
+        const homePlayer = players.find(p => p.id === match.home);
+        const awayPlayer = players.find(p => p.id === match.away);
+        if (homePlayer && awayPlayer) {
+          const homeScore = parseInt(match.homeScore);
+          const awayScore = parseInt(match.awayScore);
+          
+          // Close match (1 goal difference)
+          if (Math.abs(homeScore - awayScore) === 1) {
+            news.push({
+              id: `close_${match.id}`,
+              type: 'close_match',
+              text: `${getRandomEmoji('close')} ${homePlayer.name} ${match.homeScore} - ${match.awayScore} ${awayPlayer.name} (Çekişmeli mücadele!)`,
+              time: 'Dramatik'
+            });
+          }
+          // Big win (3+ goal difference)
+          else if (Math.abs(homeScore - awayScore) >= 3) {
+            const winner = homeScore > awayScore ? homePlayer : awayPlayer;
+            news.push({
+              id: `bigwin_${match.id}`,
+              type: 'big_win',
+              text: `${getRandomEmoji('goal')} ${winner.name} büyük galibiyet! (${match.homeScore} - ${match.awayScore})`,
+              time: 'Büyük Maç'
+            });
+          }
+          // Regular match result
+          else {
+            news.push({
+              id: `recent_${match.id}`,
+              type: 'recent_match',
+              text: `${getRandomEmoji('goal')} ${homePlayer.name} ${match.homeScore} - ${match.awayScore} ${awayPlayer.name}`,
+              time: 'Sonuç'
+            });
+          }
+        }
+      });
+    }
+    
+    // En çok gol atan
+    if (standings.length > 0) {
+      const topScorer = standings.reduce((max, player) => player.gf > max.gf ? player : max, standings[0]);
+      if (topScorer.gf > 0) {
+        // Fun comment based on goal count
+        let comment = '';
+        if (topScorer.gf >= 10) comment = ' (Topçu! 🎯)';
+        else if (topScorer.gf >= 7) comment = ' (Ağlar korkuyor! ⚽)';
+        else if (topScorer.gf >= 5) comment = ' (Gol makinesi! 🤖)';
+        
+        news.push({
+          id: 'top_scorer',
+          type: 'top_scorer',
+          text: `${getRandomEmoji('goal')} Gol kralı: ${topScorer.name} (${topScorer.gf} gol)${comment}`,
+          time: 'Güncel'
+        });
+      }
+    }
+    
+    // Temiz file (clean sheet)
+    const cleanSheets = standings.filter(player => player.ga === 0 && player.played > 0);
+    cleanSheets.forEach(player => {
+      news.push({
+        id: `cleansheet_${player.id}`,
+        type: 'clean_sheet',
+        text: `${getRandomEmoji('cleanSheet')} ${player.name} maçında gol yemeden! (0 yedek)`,
+        time: 'Kalecilerin Günü'
+      });
+    });
+    
+    // Çekişmeli maçlar (berabere kalanlar)
+    const drawMatches = playedMatches.filter(m => {
+      const homeScore = parseInt(m.homeScore);
+      const awayScore = parseInt(m.awayScore);
+      return homeScore === awayScore && homeScore > 0; // Only non-zero draws
+    });
+    
+    if (drawMatches.length > 0) {
+      const recentDraw = drawMatches[drawMatches.length - 1]; // Last draw
+      const homePlayer = players.find(p => p.id === recentDraw.home);
+      const awayPlayer = players.find(p => p.id === recentDraw.away);
+      
+      if (homePlayer && awayPlayer) {
+        news.push({
+          id: `draw_${recentDraw.id}`,
+          type: 'draw',
+          text: `${getRandomEmoji('close')} ${homePlayer.name} ve ${awayPlayer.name} berabere kaldı! (${recentDraw.homeScore} - ${recentDraw.awayScore})`,
+          time: 'Çekişme'
+        });
+      }
+    }
+    
+    // Sürpriz galibiyet (düşük sıradaki oyuncu yüksek sıradakini yense)
+    const upsetWins = playedMatches.filter(m => {
+      if (!m.played) return false;
+      const homeScore = parseInt(m.homeScore);
+      const awayScore = parseInt(m.awayScore);
+      
+      // Only consider wins
+      if (homeScore === awayScore) return false;
+      
+      const homePlayer = players.find(p => p.id === m.home);
+      const awayPlayer = players.find(p => p.id === m.away);
+      
+      if (!homePlayer || !awayPlayer) return false;
+      
+      // Find standings positions
+      const homePosition = standings.findIndex(s => s.id === homePlayer.id) + 1;
+      const awayPosition = standings.findIndex(s => s.id === awayPlayer.id) + 1;
+      
+      // If lower ranked player beats higher ranked (at least 2 position difference)
+      if (homeScore > awayScore && awayPosition >= homePosition + 2) {
+        return true; // Away player was higher ranked but lost
+      }
+      if (awayScore > homeScore && homePosition >= awayPosition + 2) {
+        return true; // Home player was higher ranked but lost
+      }
+      
+      return false;
+    });
+    
+    if (upsetWins.length > 0) {
+      const recentUpset = upsetWins[upsetWins.length - 1]; // Last upset
+      const homePlayer = players.find(p => p.id === recentUpset.home);
+      const awayPlayer = players.find(p => p.id === recentUpset.away);
+      const homeScore = parseInt(recentUpset.homeScore);
+      const awayScore = parseInt(recentUpset.awayScore);
+      
+      if (homePlayer && awayPlayer) {
+        const winner = homeScore > awayScore ? homePlayer : awayPlayer;
+        const loser = homeScore > awayScore ? awayPlayer : homePlayer;
+        
+        news.push({
+          id: `upset_${recentUpset.id}`,
+          type: 'upset',
+          text: `${getRandomEmoji('upset')} SÜRPRİZ! ${winner.name} ${loser.name} karşısında galibiyet aldı! (${recentUpset.homeScore} - ${recentUpset.awayScore})`,
+          time: 'Sürpriz'
+        });
+      }
+    }
+    
+    // En uzun galibiyet serisi
+    if (standings.length > 0) {
+      let bestWinStreak = 0;
+      let bestWinStreakPlayer = null;
+      
+      standings.forEach(player => {
+        // Sonuçlardan galibiyet serisini hesapla
+        let currentStreak = 0;
+        let maxStreak = 0;
+        
+        player.form.forEach(result => {
+          if (result === 'W') {
+            currentStreak++;
+            maxStreak = Math.max(maxStreak, currentStreak);
+          } else {
+            currentStreak = 0;
+          }
+        });
+        
+        if (maxStreak > bestWinStreak) {
+          bestWinStreak = maxStreak;
+          bestWinStreakPlayer = player;
+        }
+      });
+      
+      if (bestWinStreak >= 2 && bestWinStreakPlayer) {
+        // Fun description based on streak length
+        let streakDescription = '';
+        if (bestWinStreak >= 5) streakDescription = ' (Efsanevi! 🌟)';
+        else if (bestWinStreak >= 4) streakDescription = ' (Harika formda! 🚀)';
+        else if (bestWinStreak >= 3) streakDescription = ' (İstikrarlı! 💪)';
+        
+        news.push({
+          id: 'win_streak',
+          type: 'win_streak',
+          text: `${getRandomEmoji('streak')} ${bestWinStreakPlayer.name} ${bestWinStreak} maç üst üste galibiyet!${streakDescription}`,
+          time: 'Seri'
+        });
+      }
+    }
+    
+    // İyi çıkış yapan (son 3 maçta en az 2 galibiyet)
+    if (standings.length > 0) {
+      const risingPlayers = standings.filter(player => {
+        const recentForm = player.form.slice(-3);
+        const wins = recentForm.filter(r => r === 'W').length;
+        return wins >= 2 && recentForm.length >= 2;
+      });
+      
+      risingPlayers.forEach(player => {
+        const recentForm = player.form.slice(-3);
+        const wins = recentForm.filter(r => r === 'W').length;
+        
+        // Fun comment based on wins
+        let comment = '';
+        if (wins === 3) comment = ' (Mükemmel! 🏆)';
+        else if (wins === 2) comment = ' (İyileşiyor! 📈)';
+        
+        news.push({
+          id: `rising_${player.id}`,
+          type: 'rising',
+          text: `${getRandomEmoji('rise')} ${player.name} iyi çıkış yapıyor (${wins}/3 galibiyet)${comment}`,
+          time: 'Çıkış'
+        });
+      });
+    }
+    
+    // Oyuncuların geçmiş maçlarını analiz ederek istatistiksel haberler
+    if (standings.length > 0 && playedMatches.length > 0) {
+      // Oyuncular arasındaki geçmiş maçları kontrol et
+      standings.forEach(player => {
+        // Bu oyuncunun katıldığı tüm maçları bul
+        const playerMatches = matches.filter(m => 
+          m.played && (m.home === player.id || m.away === player.id)
+        );
+        
+        // Rakip oyunculara göre istatistikleri hesapla
+        const opponentStats = {};
+        
+        playerMatches.forEach(match => {
+          const isHome = match.home === player.id;
+          const opponentId = isHome ? match.away : match.home;
+          const opponent = players.find(p => p.id === opponentId);
+          
+          if (opponent) {
+            if (!opponentStats[opponentId]) {
+              opponentStats[opponentId] = {
+                name: opponent.name,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                totalMatches: 0
+              };
+            }
+            
+            opponentStats[opponentId].totalMatches++;
+            
+            const playerScore = isHome ? parseInt(match.homeScore) : parseInt(match.awayScore);
+            const opponentScore = isHome ? parseInt(match.awayScore) : parseInt(match.homeScore);
+            
+            if (playerScore > opponentScore) {
+              opponentStats[opponentId].wins++;
+            } else if (playerScore < opponentScore) {
+              opponentStats[opponentId].losses++;
+            } else {
+              opponentStats[opponentId].draws++;
+            }
+          }
+        });
+        
+        // En çok kazanılan rakip (sadece 3 veya daha fazla maç yapıldıysa)
+        let bestOpponent = null;
+        let maxWins = 0;
+        
+        Object.values(opponentStats).forEach(stats => {
+          if (stats.wins > maxWins && stats.totalMatches >= 3) {
+            maxWins = stats.wins;
+            bestOpponent = stats;
+          }
+        });
+        
+        if (bestOpponent && maxWins >= 2) {
+          news.push({
+            id: `best_opponent_${player.id}`,
+            type: 'best_opponent',
+            text: `🔥 ${player.name}, ${bestOpponent.name} karşısına ${maxWins} kez galibiyet aldı!`,
+            time: 'İstatistik'
+          });
+        }
+        
+        // En çok kaybedilen rakip (sadece 3 veya daha fazla maç yapıldıysa)
+        let worstOpponent = null;
+        let maxLosses = 0;
+        
+        Object.values(opponentStats).forEach(stats => {
+          if (stats.losses > maxLosses && stats.totalMatches >= 3) {
+            maxLosses = stats.losses;
+            worstOpponent = stats;
+          }
+        });
+        
+        if (worstOpponent && maxLosses >= 2) {
+          news.push({
+            id: `worst_opponent_${player.id}`,
+            type: 'worst_opponent',
+            text: `⚠️ ${player.name}, ${worstOpponent.name} karşısında ${maxLosses} kez mağlup oldu!`,
+            time: 'İstatistik'
+          });
+        }
+      });
+    }
+    
+    // Gelecek maçlar hakkında tahminler
+    const upcomingMatches = matches.filter(m => !m.played);
+    if (upcomingMatches.length > 0 && standings.length > 0) {
+      // Rastgele 3 maç seç
+      const sampleMatches = [...upcomingMatches]
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3);
+      
+      sampleMatches.forEach(match => {
+        const homePlayer = players.find(p => p.id === match.home);
+        const awayPlayer = players.find(p => p.id === match.away);
+        
+        if (homePlayer && awayPlayer) {
+          // Önceki karşılaşmaları kontrol et
+          const previousMatches = matches.filter(m => 
+            m.played && 
+            ((m.home === homePlayer.id && m.away === awayPlayer.id) || 
+             (m.home === awayPlayer.id && m.away === homePlayer.id))
+          );
+          
+          if (previousMatches.length > 0) {
+            // Önceki maçlardaki performansı incele
+            const homeWins = previousMatches.filter(m => {
+              if (m.home === homePlayer.id) return parseInt(m.homeScore) > parseInt(m.awayScore);
+              if (m.away === homePlayer.id) return parseInt(m.awayScore) > parseInt(m.homeScore);
+              return false;
+            }).length;
+            
+            const awayWins = previousMatches.filter(m => {
+              if (m.home === awayPlayer.id) return parseInt(m.homeScore) > parseInt(m.awayScore);
+              if (m.away === awayPlayer.id) return parseInt(m.awayScore) > parseInt(m.homeScore);
+              return false;
+            }).length;
+            
+            // Tahmin yap
+            let prediction = '';
+            if (homeWins > awayWins) {
+              const winPredictions = [
+                `${homePlayer.name} bu kez de kazanabilir! ${getRandomEmoji('win')}`,
+                `${homePlayer.name} üstünlüğünü sürdürüyor! 🔥`,
+                `${homePlayer.name} yenilgiyi unutmuş! 🤖`,
+                `${homePlayer.name} favori konumunda! 🏆`,
+                `${homePlayer.name} yeniden zaferle tanışabilir! 🎉`
+              ];
+              prediction = winPredictions[Math.floor(Math.random() * winPredictions.length)];
+            } else if (awayWins > homeWins) {
+              const revengePredictions = [
+                `${awayPlayer.name} bu kez intikam alabilir! ${getRandomEmoji('win')}`,
+                `${awayPlayer.name} intikamını almak için hazır! ⚔️`,
+                `${awayPlayer.name} yenilgiyi unutmuş olabilir! 🤯`,
+                `${awayPlayer.name} bu kez söz sahibi olabilir! 💪`,
+                `${awayPlayer.name} revanşı yakalayabilir! 🎯`
+              ];
+              prediction = revengePredictions[Math.floor(Math.random() * revengePredictions.length)];
+            } else {
+              const tiePredictions = [
+                'Bu kez kim kazanacak? Berabere kalır mı? 🤔',
+                'Çekişmeli bir maç bekleniyor! ⚔️',
+                'Her iki taraf da kazanabilir! 🎲',
+                'Maç sonucu tam bir bilinmezlik! 🎭',
+                'Kazanan belli olana kadar kimse tahminde bulunamaz! 🤷‍♂️'
+              ];
+              prediction = tiePredictions[Math.floor(Math.random() * tiePredictions.length)];
+            }
+            
+            news.push({
+              id: `prediction_${match.id}`,
+              type: 'prediction',
+              text: `🔮 ${homePlayer.name} vs ${awayPlayer.name}: ${prediction}`,
+              time: 'Tahmin'
+            });
+          }
+          
+          // İlginç eşleşmeler için özel tahminler
+          if (standings.length > 0) {
+            const homeStanding = standings.findIndex(s => s.id === homePlayer.id) + 1;
+            const awayStanding = standings.findIndex(s => s.id === awayPlayer.id) + 1;
+            
+            // David vs Goliath (alt sıradaki üst sıradakini yenmeye çalışırsa) - sadece yeterli maç oynandıysa
+            if (playedMatches.length >= 5 && Math.abs(homeStanding - awayStanding) >= 3) {
+              const underdog = homeStanding > awayStanding ? homePlayer : awayPlayer;
+              const favorite = homeStanding > awayStanding ? awayPlayer : homePlayer;
+              
+              const upsetComments = [
+                `${underdog.name} devi yenebilir mi? 🤯`,
+                `${underdog.name} bu maçı kader maçı yapabilir! ⚔️`,
+                `${underdog.name} sürprizi mümkün mü? 🎭`,
+                `${underdog.name} için imkansız mümkün olabilir! ✨`
+              ];
+              
+              const randomComment = upsetComments[Math.floor(Math.random() * upsetComments.length)];
+              
+              news.push({
+                id: `upset_potential_${match.id}`,
+                type: 'upset_potential',
+                text: `🎪 ${randomComment}`,
+                time: 'Potansiyel Sürpriz'
+              });
+            }
+            
+            // Form düşen favori (sadece yeterli maç oynandıysa)
+            const homePlayerStats = standings.find(s => s.id === homePlayer.id);
+            const awayPlayerStats = standings.find(s => s.id === awayPlayer.id);
+            
+            // Son 2 maçı kaybeden favori (sadece yeterli maç oynandıysa)
+            if (playedMatches.length >= 4 && homePlayerStats && homePlayerStats.form.slice(-2).every(f => f === 'L')) {
+              const comebackComments = [
+                `${homePlayer.name} toparlanma maçı yapabilir! 📈`,
+                `${homePlayer.name} düşüşü durdurabilir! ⛔`,
+                `${homePlayer.name} yeniden forma girebilir! 🔥`
+              ];
+              
+              const randomComment = comebackComments[Math.floor(Math.random() * comebackComments.length)];
+              
+              news.push({
+                id: `comeback_${match.id}`,
+                type: 'comeback',
+                text: `🔄 ${randomComment}`,
+                time: 'Toparlanma'
+              });
+            }
+            
+            if (playedMatches.length >= 4 && awayPlayerStats && awayPlayerStats.form.slice(-2).every(f => f === 'L')) {
+              const comebackComments = [
+                `${awayPlayer.name} toparlanma maçı yapabilir! 📈`,
+                `${awayPlayer.name} düşüşü durdurabilir! ⛔`,
+                `${awayPlayer.name} yeniden forma girebilir! 🔥`
+              ];
+              
+              const randomComment = comebackComments[Math.floor(Math.random() * comebackComments.length)];
+              
+              news.push({
+                id: `comeback_${match.id}_away`,
+                type: 'comeback',
+                text: `🔄 ${randomComment}`,
+                time: 'Toparlanma'
+              });
+            }
+          }
+        }
+      });
+    }
+    
+    // İntikam maçı (2 kere yenilen kişi)
+    if (standings.length > 0) {
+      // En çok yenilen oyuncuları bul
+      const mostLosses = standings
+        .filter(p => p.lost >= 2)
+        .sort((a, b) => b.lost - a.lost);
+      
+      if (mostLosses.length > 0) {
+        const victim = mostLosses[0];
+        // Bu oyuncunun gelecek maçları var mı?
+        const victimUpcoming = matches.filter(m => 
+          !m.played && (m.home === victim.id || m.away === victim.id)
+        );
+        
+        if (victimUpcoming.length > 0) {
+          const nextMatch = victimUpcoming[0];
+          const opponentId = nextMatch.home === victim.id ? nextMatch.away : nextMatch.home;
+          const opponent = players.find(p => p.id === opponentId);
+          
+          if (opponent) {
+            // Daha eğlenceli intikam maçları
+            const revengePhrases = [
+              `💥 ${victim.name} (${victim.lost} kez yenildi) ${opponent.name} ile intikam maçı! Gaz mı geliyor? 🔥`,
+              `⚔️ ${victim.name} (${victim.lost} kez yenildi) bu kez intikam almak için sahaya çıkıyor! Kazanabilir mi? 🤔`,
+              `💪 ${victim.name} (${victim.lost} kez yenildi) bu maçı kader maçı yapabilir! İmkansız mümkün olur mu? 🎭`,
+              `🔥 ${victim.name} (${victim.lost} kez yenildi) yenilgiyi unutmak için sahada! Bu kez kim galip çıkacak? 🏆`,
+              `⚡ ${victim.name} (${victim.lost} kez yenildi) bu kez revanş için hazır! Sürpriz mümkün mü? 🤯`,
+              `🎯 ${victim.name} (${victim.lost} kez yenildi) intikamını almak için fırsatı değerlendirecek mi? 🎯`,
+              `🎪 ${victim.name} (${victim.lost} kez yenildi) bu kez senaryoyu değiştirebilir! Kim kazanacak? 🎭`
+            ];
+            
+            const randomPhrase = revengePhrases[Math.floor(Math.random() * revengePhrases.length)];
+            
+            news.push({
+              id: `revenge_${nextMatch.id}`,
+              type: 'revenge',
+              text: randomPhrase,
+              time: 'İntikam'
+            });
+          }
+        }
+      }
+    }
+    
+    // Shuffle news for variety
+    if (news.length > 1) {
+      // Always keep the most recent match result first
+      const firstNews = news[0];
+      const restNews = news.slice(1);
+      
+      // Shuffle the rest
+      for (let i = restNews.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [restNews[i], restNews[j]] = [restNews[j], restNews[i]];
+      }
+      
+      return [firstNews, ...restNews];
+    }
+    
+    return news;
+  }, [matches, players, standings]);
 
   // --- Fixture Logic ---
   const generateFixtures = (selectedLegs) => {
-    if (players.length < 2) return;
+    console.log('generateFixtures çağrıldı, selectedLegs:', selectedLegs);
+    console.log('players.length:', players.length);
+    console.log('players:', players);
+    
+    if (players.length < 2) {
+      console.log('Oyuncu sayısı 2den az, fikstür oluşturulamıyor');
+      return;
+    }
+    
     let schedule = [];
-    const p = [...players];
-    if (p.length % 2 !== 0) p.push({ id: 'bye', name: 'Bay' });
+    // Oyuncuları filtreleyerek sadece geçerli olanları al
+    const p = players.filter(player => player && player.id);
+    console.log('Filtrelenmiş oyuncular:', p);
+    
+    if (p.length % 2 !== 0) {
+      console.log('Tek sayıda oyuncu, Bay ekleniyor');
+      p.push({ id: 'bye', name: 'Bay' });
+    }
 
     const baseRounds = p.length - 1;
     const half = p.length / 2;
-    let list = p.map(x => x.id);
+    // Sadece geçerli oyuncuların id'lerini al
+    let list = p.map(x => x.id).filter(id => id);
+    console.log('Base rounds:', baseRounds, 'Half:', half, 'List:', list);
     
     // Generate Base Schedule (Single Leg)
     let baseSchedule = [];
@@ -497,33 +1100,50 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
       for (let i = 0; i < half; i++) {
         const p1 = list[i];
         const p2 = list[p.length - 1 - i];
-        if (p1 !== 'bye' && p2 !== 'bye') {
+        // undefined değerleri kontrol et
+        if (p1 && p2 && p1 !== 'bye' && p2 !== 'bye') {
           roundMatches.push({ home: p1, away: p2 });
         }
       }
       baseSchedule.push(roundMatches);
       list.splice(1, 0, list.pop());
     }
+    console.log('Base schedule:', baseSchedule);
 
     // Repeat for selected legs
     for (let leg = 0; leg < selectedLegs; leg++) {
       baseSchedule.forEach((roundMatches, roundIdx) => {
         const absoluteRound = (leg * baseRounds) + roundIdx + 1;
         roundMatches.forEach((m, i) => {
-          schedule.push({
-            id: `m-${leg}-${roundIdx}-${i}`,
-            round: absoluteRound,
-            home: leg % 2 === 0 ? m.home : m.away,
-            away: leg % 2 === 0 ? m.away : m.home,
-            homeScore: '', awayScore: '', played: false
-          });
+          // undefined değerleri kontrol et
+          if (m && m.home && m.away) {
+            schedule.push({
+              id: `m-${leg}-${roundIdx}-${i}`,
+              round: absoluteRound,
+              home: leg % 2 === 0 ? m.home : m.away,
+              away: leg % 2 === 0 ? m.away : m.home,
+              homeScore: '', awayScore: '', played: false
+            });
+          }
         });
       });
     }
+    console.log('Oluşturulan fikstür:', schedule);
 
     const newSettings = { ...settings, started: true, legs: selectedLegs };
-    saveData({ players, matches: schedule, settings: newSettings });
+    console.log('Yeni ayarlar:', newSettings);
+    
+    // Clean up player data before saving to prevent undefined values
+    const cleanPlayers = players.map(player => ({
+      id: player.id || '',
+      name: player.name || '',
+      team: player.team || '',
+      avatar: player.avatar || null
+    })).filter(player => player.id);
+    
+    saveData({ players: cleanPlayers, matches: schedule, settings: newSettings });
     updateStatus('Devam Ediyor');
+    console.log('Fikstür başarıyla oluşturuldu');
   };
 
   const handleMatchUpdate = (matchId, field, value) => {
@@ -535,12 +1155,26 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
         const awayValid = newMatch.awayScore !== '' && !isNaN(parseInt(newMatch.awayScore));
         
         newMatch.played = homeValid && awayValid;
+        
+        // Add timestamp when match is played
+        if (newMatch.played && (!m.played || m.homeScore !== newMatch.homeScore || m.awayScore !== newMatch.awayScore)) {
+          newMatch.updatedAt = new Date().toISOString();
+        }
+        
         return newMatch;
       }
       return m;
     });
     setMatches(updatedMatches);
-    saveData({ players, matches: updatedMatches, settings });
+    // Clean up player data before saving
+    const cleanPlayers = players.map(player => ({
+      id: player.id || '',
+      name: player.name || '',
+      team: player.team || '',
+      avatar: player.avatar || null
+    })).filter(player => player.id);
+    
+    saveData({ players: cleanPlayers, matches: updatedMatches, settings });
     
     // Check if the entire tournament is finished
     if (updatedMatches.every(m => m.played)) {
@@ -548,6 +1182,36 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
     } else {
         // Ensure status is 'Devam Ediyor' if at least one match is played but not all are
         if (updatedMatches.some(m => m.played)) updateStatus('Devam Ediyor');
+    }
+  };
+
+  // Oyuncu için sabit renk paleti (her oyuncu için aynı renk)
+  const getPlayerColor = (playerId) => {
+    return 'from-slate-500 to-slate-600'; // Artık kullanılmayan fonksiyon
+  };
+
+  // Rakip için zıt renk seçimi (sabit ve tutarlı)
+  const getContrastColor = (playerId) => {
+    return 'from-slate-500 to-slate-600'; // Artık kullanılmayan fonksiyon
+  };
+
+  // Skor düzenleme modunu aç/kapat
+  const toggleScoreEditMode = (matchId) => {
+    setScoreEditMode(prev => ({
+      ...prev,
+      [matchId]: !prev[matchId]
+    }));
+  };
+
+  // Mobil cihaz kontrolü
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  // Enter tuşu ile skor kaydetme
+  const handleScoreKeyPress = (e, matchId) => {
+    if (e.key === 'Enter') {
+      toggleScoreEditMode(matchId);
     }
   };
 
@@ -559,7 +1223,15 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
             setMatches([]);
             setSettings({...settings, started: false});
             updateStatus('Hazırlık');
-            await saveData({players, matches: [], settings: {...settings, started: false}});
+            // Clean up player data before saving
+            const cleanPlayers = players.map(player => ({
+              id: player.id || '',
+              name: player.name || '',
+              team: player.team || '',
+              avatar: player.avatar || null
+            })).filter(player => player.id);
+            
+            await saveData({players: cleanPlayers, matches: [], settings: {...settings, started: false}});
         }
     );
   };
@@ -581,6 +1253,31 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
           {isAdmin && <span className="text-[10px] bg-red-900/30 text-red-400 px-2 py-1 rounded border border-red-900/50">YÖNETİCİ</span>}
         </div>
       </div>
+      
+      {/* Live News Ticker */}
+      {activeTab === 'standings' && liveNews.length > 0 && (
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700 py-2 overflow-hidden">
+          <div className="max-w-4xl mx-auto relative h-6">
+            <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-slate-800 to-transparent z-10"></div>
+            <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-slate-800 to-transparent z-10"></div>
+            <div className="animate-marquee whitespace-nowrap absolute inset-0 flex items-center">
+              {liveNews.map((item, index) => (
+                <div key={`${item.id}_${index}`} className="mx-4 flex items-center gap-2 text-xs">
+                  <span className="bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded font-bold">{item.time}</span>
+                  <span className="text-slate-300">{item.text}</span>
+                </div>
+              ))}
+              {/* Duplicate for seamless loop */}
+              {liveNews.map((item, index) => (
+                <div key={`dup_${item.id}_${index}`} className="mx-4 flex items-center gap-2 text-xs">
+                  <span className="bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded font-bold">{item.time}</span>
+                  <span className="text-slate-300">{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto p-4">
         
@@ -596,12 +1293,12 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                     <tr>
                       <th className="px-2 py-3 w-8 text-center">#</th>
                       <th className="px-2 py-3 text-left">Oyuncu</th>
-                      <th className="px-1 py-3 w-8 text-center hidden sm:table-cell">O</th>
+                      <th className="px-2 py-3 text-center">Form</th>
+                      <th className="px-1 py-3 w-8 text-center bg-slate-800/50 text-white">O</th>
                       <th className="px-1 py-3 w-8 text-center text-emerald-500/70">AG</th>
                       <th className="px-1 py-3 w-8 text-center text-red-500/70">YG</th>
                       <th className="px-1 py-3 w-8 text-center">Av</th>
-                      <th className="px-2 py-3 hidden md:table-cell text-center">Form</th>
-                      <th className="px-3 py-3 w-16 text-center bg-slate-800/50 text-white">P</th>
+                      <th className="px-3 py-3 w-12 text-center bg-slate-800/50 text-white">P</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
@@ -615,7 +1312,11 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                        return (
                         <tr 
                           key={row.id} 
-                          onClick={() => setSelectedPlayer(row)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedPlayer(row);
+                          }}
                           className={`cursor-pointer hover:bg-slate-800/60 transition-colors ${idx < 1 ? 'bg-gradient-to-r from-emerald-900/10 to-transparent' : ''}`}
                         >
                           <td className="px-2 py-4 text-center font-medium text-slate-500 relative">
@@ -623,17 +1324,13 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                <span>{idx + 1}</span>
                                {settings.started && row.played > 0 && <TrendIcon size={12} className={trendColor} />}
                             </div>
-                            {idx === 0 && <div className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-500 rounded-r shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>}
+                            {idx === 0 && <div className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-500 rounded-r"></div>}
                           </td>
                           <td className="px-2 py-4">
                             <div className="flex items-center gap-3">
-                              {row.avatar ? (
-                                <img src={row.avatar} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-slate-700 bg-slate-800 shadow-lg" onError={(e) => {e.target.onerror = null; e.target.src='https://placehold.co/40x40/1e293b/94a3b8?text=AV'}}/>
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 flex items-center justify-center text-slate-400 text-sm font-bold shadow-lg">
-                                  {row.name.charAt(0)}
-                                </div>
-                              )}
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 flex items-center justify-center text-slate-400 text-sm font-bold shadow-lg">
+                                {row.name.charAt(0)}
+                              </div>
                               <div className="min-w-0">
                                 <div className="font-bold text-white text-sm uppercase tracking-wide truncate">{row.name}</div>
                                 <div className="text-[10px] text-slate-400 truncate flex items-center gap-1">
@@ -642,18 +1339,18 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                               </div>
                             </div>
                           </td>
-                          <td className="px-1 py-4 text-center text-slate-300 hidden sm:table-cell">{row.played}</td>
+                          <td className="px-2 py-4">
+                            <div className="flex justify-center gap-1">
+                              {getLastFiveMatches(row.id).map((match, i) => (
+                                <div key={i} className={`w-1.5 h-4 rounded-full ${match.result==='W'?'bg-emerald-500':match.result==='D'?'bg-slate-500':'bg-red-500'}`}></div>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-1 py-4 text-center font-bold text-slate-300 bg-slate-800/30">{row.played}</td>
                           <td className="px-1 py-4 text-center text-slate-400 font-medium">{row.gf}</td>
                           <td className="px-1 py-4 text-center text-slate-400 font-medium">{row.ga}</td>
                           <td className="px-1 py-4 text-center text-slate-300 font-bold">{row.gd > 0 ? `+${row.gd}` : row.gd}</td>
-                          <td className="px-2 py-4 hidden md:table-cell">
-                             <div className="flex justify-center gap-1">
-                                {row.form.slice(-5).map((f, i) => (
-                                  <div key={i} className={`w-1.5 h-4 rounded-full ${f==='W'?'bg-emerald-500':f==='D'?'bg-slate-500':'bg-red-500'}`}></div>
-                                ))}
-                             </div>
-                          </td>
-                          <td className="px-3 py-4 text-center font-black text-white text-xl bg-gradient-to-b from-slate-800/50 to-slate-900/50 shadow-inner border-l border-slate-800">
+                          <td className="px-3 py-4 text-center font-black text-white text-xl bg-slate-800/50">
                             {row.points}
                           </td>
                         </tr>
@@ -677,57 +1374,138 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                    const roundMatches = matches.filter(m => m.round === round);
                    const isFinished = roundMatches.every(m => m.played);
                    return (
-                    <div key={round} className={`rounded-xl overflow-hidden border transition-all ${isFinished ? 'bg-slate-900/30 border-slate-800/50 opacity-70' : 'bg-slate-900 border-slate-800'}`}>
-                      <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider flex justify-between bg-slate-950/50 text-slate-400">
-                        <span>Hafta {round}</span>
+                    <div key={round} className={`rounded-xl overflow-hidden border transition-all ${isFinished ? 'bg-gradient-to-r from-slate-900/30 to-slate-900/10 border-slate-800/50 opacity-70' : 'bg-gradient-to-r from-slate-900 to-slate-800 border-slate-700 shadow-lg'}`}>
+                      <div className="px-4 py-3 text-xs font-bold uppercase tracking-wider flex justify-between bg-slate-950/50 text-slate-300 border-b border-slate-800/50">
+                        <span className="flex items-center gap-2">
+                          <Calendar size={14} className="text-emerald-400" />
+                          Hafta {round}
+                        </span>
+                        <span className="text-slate-500">
+                          {roundMatches.filter(m => m.played).length}/{roundMatches.length}
+                        </span>
                       </div>
                       <div className="divide-y divide-slate-800/50">
                         {roundMatches.map(match => {
                           const h = players.find(p => p.id === match.home);
                           const a = players.find(p => p.id === match.away);
+                          const isEditMode = scoreEditMode[match.id];
+                          
+                          // Maç durumu için renk sınıfı
+                          let matchStatusClass = "bg-slate-800/30 hover:bg-slate-700/30 transition-all duration-300";
+                          let scoreBackgroundClass = "bg-gradient-to-b from-slate-800/50 to-slate-900/50";
+                          let winnerHighlight = null;
+                          
+                          if (match.played) {
+                            const homeScore = parseInt(match.homeScore);
+                            const awayScore = parseInt(match.awayScore);
+                            
+                            if (homeScore > awayScore) {
+                              // Ev sahibi kazandı
+                              matchStatusClass = "bg-gradient-to-r from-emerald-900/20 to-emerald-900/10 border-l-4 border-emerald-500/70 hover:from-emerald-900/30 hover:to-emerald-900/20 transition-all duration-300";
+                              scoreBackgroundClass = "bg-gradient-to-b from-emerald-800/30 to-emerald-900/20 border border-emerald-700/50";
+                              winnerHighlight = "home";
+                            } else if (awayScore > homeScore) {
+                              // Deplasman kazandı
+                              matchStatusClass = "bg-gradient-to-r from-emerald-900/20 to-emerald-900/10 border-l-4 border-emerald-500/70 hover:from-emerald-900/30 hover:to-emerald-900/20 transition-all duration-300";
+                              scoreBackgroundClass = "bg-gradient-to-b from-emerald-800/30 to-emerald-900/20 border border-emerald-700/50";
+                              winnerHighlight = "away";
+                            } else {
+                              // Berabere
+                              matchStatusClass = "bg-gradient-to-r from-slate-700/20 to-slate-700/10 border-l-4 border-slate-500/70 hover:from-slate-700/30 hover:to-slate-700/20 transition-all duration-300";
+                              scoreBackgroundClass = "bg-gradient-to-b from-slate-700/30 to-slate-800/20 border border-slate-600/50";
+                            }
+                          }
+                          
                           return (
-                            <div key={match.id} className={`p-3 flex items-center justify-between transition-colors ${match.played ? 'bg-emerald-900/10' : ''}`}>
-                              <div className="flex-1 text-right pr-3 flex items-center justify-end gap-2">
+                            <div key={match.id} className={`p-4 flex items-center justify-between transition-all duration-300 rounded-lg relative ${matchStatusClass}`}>
+                              <div className="flex-1 text-right pr-3 flex items-center justify-end gap-3">
                                 <div className="overflow-hidden">
-                                   <div className="font-bold text-slate-200 text-sm truncate uppercase">{h?.name}</div>
-                                   {h?.team && <div className="text-[10px] text-slate-500 truncate hidden xs:block">{h.team}</div>}
+                                   <div className={`font-bold text-slate-100 text-base truncate uppercase px-2 py-1 rounded-lg ${
+                                     winnerHighlight === 'home' ? 'bg-emerald-500/20 text-emerald-400 font-black' : 
+                                     winnerHighlight === 'away' ? 'bg-red-500/20 text-red-400' : 
+                                     'bg-slate-500/20 text-slate-400'
+                                   }`}>
+                                     {h?.name}
+                                   </div>
+                                   {h?.team && <div className="text-[11px] text-slate-400 truncate">{h.team}</div>}
                                 </div>
-                                {h?.avatar && <img src={h.avatar} className="w-6 h-6 rounded-full object-cover hidden sm:block" onError={(e) => {e.target.onerror = null; e.target.src='https://placehold.co/24x24/1e293b/94a3b8?text=AV'}}/>}
                               </div>
                               
-                              <div className="flex items-center gap-1 min-w-[80px] justify-center">
+                              <div className="flex items-center gap-2 min-w-[100px] justify-center">
                                 {isAdmin ? (
-                                  <>
-                                    <input 
-                                       type="number" 
-                                       pattern="\d*"
-                                       inputMode="numeric"
-                                       value={match.homeScore} 
-                                       onChange={(e) => handleMatchUpdate(match.id, 'homeScore', e.target.value)} 
-                                       className={`w-8 h-8 border rounded text-center font-bold focus:border-emerald-500 outline-none p-0 ${match.played ? 'bg-emerald-950 border-emerald-900 text-emerald-400' : 'bg-slate-950 border-slate-700 text-white'}`} 
-                                    />
-                                    <span className="text-slate-600">-</span>
-                                    <input 
-                                       type="number" 
-                                       pattern="\d*"
-                                       inputMode="numeric"
-                                       value={match.awayScore} 
-                                       onChange={(e) => handleMatchUpdate(match.id, 'awayScore', e.target.value)} 
-                                       className={`w-8 h-8 border rounded text-center font-bold focus:border-emerald-500 outline-none p-0 ${match.played ? 'bg-emerald-950 border-emerald-900 text-emerald-400' : 'bg-slate-950 border-slate-700 text-white'}`} 
-                                    />
-                                  </>
+                                  isEditMode ? (
+                                    <div className="flex flex-col items-center gap-2 bg-slate-900/80 p-3 rounded-xl border border-emerald-500/30 shadow-lg w-full max-w-[180px]">
+                                      <div className="flex items-center gap-2 w-full">
+                                        <input 
+                                          type="number" 
+                                          pattern="[0-9]*"
+                                          inputMode="numeric"
+                                          value={match.homeScore} 
+                                          onChange={(e) => handleMatchUpdate(match.id, 'homeScore', e.target.value)} 
+                                          className="w-full h-12 border rounded text-center font-bold focus:border-emerald-500 outline-none p-0 bg-slate-900 border-slate-700 text-white text-xl" 
+                                          autoFocus
+                                          onFocus={(e) => e.target.select()}
+                                          onKeyPress={(e) => handleScoreKeyPress(e, match.id)}
+                                        />
+                                        <span className="text-slate-400 font-bold text-xl">-</span>
+                                        <input 
+                                          type="number" 
+                                          pattern="[0-9]*"
+                                          inputMode="numeric"
+                                          value={match.awayScore} 
+                                          onChange={(e) => handleMatchUpdate(match.id, 'awayScore', e.target.value)} 
+                                          className="w-full h-12 border rounded text-center font-bold focus:border-emerald-500 outline-none p-0 bg-slate-900 border-slate-700 text-white text-xl" 
+                                          onFocus={(e) => e.target.select()}
+                                          onKeyPress={(e) => handleScoreKeyPress(e, match.id)}
+                                        />
+                                      </div>
+                                      <button 
+                                        onClick={() => toggleScoreEditMode(match.id)}
+                                        className="w-full py-2 text-emerald-400 hover:text-emerald-300 bg-emerald-900/20 rounded-lg hover:bg-emerald-900/30 transition-colors font-bold text-sm"
+                                      >
+                                        TAMAM
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div 
+                                      className="flex items-center gap-2 cursor-pointer group"
+                                      onClick={() => toggleScoreEditMode(match.id)}
+                                    >
+                                      <div className={`px-4 py-2 rounded-lg font-bold text-lg min-w-[80px] text-center shadow-md transition-all ${scoreBackgroundClass} ${match.played ? 'group-hover:scale-105' : 'group-hover:from-slate-700/50 group-hover:to-slate-800/50'}`}>
+                                        {match.played ? (
+                                          <div className="flex items-center justify-center gap-1">
+                                            <span className={winnerHighlight === 'home' ? 'text-emerald-400 font-black' : ''}>{match.homeScore}</span>
+                                            <span className="text-slate-500">-</span>
+                                            <span className={winnerHighlight === 'away' ? 'text-emerald-400 font-black' : ''}>{match.awayScore}</span>
+                                          </div>
+                                        ) : 'vs'}
+                                      </div>
+                                      <Edit3 size={16} className="text-slate-500 group-hover:text-slate-300 transition-colors" />
+                                    </div>
+                                  )
                                 ) : (
-                                  <div className={`px-3 py-1 rounded font-bold text-sm ${match.played ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-900/50' : 'bg-slate-950 text-slate-300'}`}>
-                                    {match.played ? `${match.homeScore} - ${match.awayScore}` : 'vs'}
+                                  <div className={`px-4 py-2 rounded-lg font-bold text-lg min-w-[80px] text-center shadow-md ${scoreBackgroundClass}`}>
+                                    {match.played ? (
+                                      <div className="flex items-center justify-center gap-1">
+                                        <span className={winnerHighlight === 'home' ? 'text-emerald-400 font-black' : ''}>{match.homeScore}</span>
+                                        <span className="text-slate-500">-</span>
+                                        <span className={winnerHighlight === 'away' ? 'text-emerald-400 font-black' : ''}>{match.awayScore}</span>
+                                      </div>
+                                    ) : 'vs'}
                                   </div>
                                 )}
                               </div>
 
-                              <div className="flex-1 text-left pl-3 flex items-center justify-start gap-2">
-                                {a?.avatar && <img src={a.avatar} className="w-6 h-6 rounded-full object-cover hidden sm:block" onError={(e) => {e.target.onerror = null; e.target.src='https://placehold.co/24x24/1e293b/94a3b8?text=AV'}}/>}
+                              <div className="flex-1 text-left pl-3 flex items-center justify-start gap-3">
                                 <div className="overflow-hidden">
-                                  <div className="font-bold text-slate-200 text-sm truncate uppercase">{a?.name}</div>
-                                  {a?.team && <div className="text-[10px] text-slate-500 truncate hidden xs:block">{a.team}</div>}
+                                   <div className={`font-bold text-slate-100 text-base truncate uppercase px-2 py-1 rounded-lg ${
+                                     winnerHighlight === 'away' ? 'bg-emerald-500/20 text-emerald-400 font-black' : 
+                                     winnerHighlight === 'home' ? 'bg-red-500/20 text-red-400' : 
+                                     'bg-slate-500/20 text-slate-400'
+                                   }`}>
+                                     {a?.name}
+                                   </div>
+                                   {a?.team && <div className="text-[11px] text-slate-400 truncate">{a.team}</div>}
                                 </div>
                               </div>
                             </div>
@@ -781,8 +1559,8 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                 {!settings.started && (
                   <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                     <h3 className="text-slate-300 font-bold text-xs uppercase mb-3">Katılımcı Ekle</h3>
-                    <AddPlayerForm onAdd={(name, team, avatar) => {
-                      const newList = [...players, { id: Date.now().toString(), name, team, avatar }];
+                    <AddPlayerForm onAdd={(name, team) => {
+                      const newList = [...players, { id: Date.now().toString(), name, team, avatar: null }];
                       setPlayers(newList);
                       saveData({ players: newList, matches, settings });
                     }} />
@@ -790,7 +1568,7 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                       {players.map(p => (
                         <div key={p.id} className="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
                           <div className="flex items-center gap-2">
-                            {p.avatar ? <img src={p.avatar} className="w-8 h-8 rounded-full object-cover" onError={(e) => {e.target.onerror = null; e.target.src='https://placehold.co/32x32/1e293b/94a3b8?text=AV'}}/> : <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-xs">{p.name[0]}</div>}
+                            <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-xs">{p.name[0]}</div>
                             <div>
                               <div className="text-white font-medium text-sm uppercase">{p.name}</div>
                               <div className="text-slate-500 text-[10px]">{p.team || 'Takımsız'}</div>
@@ -832,7 +1610,12 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                            </p>
                          </div>
 
-                         <button onClick={() => generateFixtures(settings.legs || 2)} disabled={players.length < 2} className="w-full bg-emerald-600 disabled:opacity-50 text-white py-3 rounded-lg font-bold text-sm shadow-lg shadow-emerald-600/20">
+                         <button onClick={() => { 
+                           console.log('Fikstür başlat butonuna tıklandı'); 
+                           console.log('Settings legs:', settings.legs);
+                           console.log('Players length:', players.length);
+                           generateFixtures(settings.legs || 2); 
+                         }} disabled={players.length < 2} className="w-full bg-emerald-600 disabled:opacity-50 text-white py-3 rounded-lg font-bold text-sm shadow-lg shadow-emerald-600/20">
                            Fikstürü Başlat ({players.length} Kişi)
                          </button>
                          {players.length < 2 && <p className="text-red-400 text-xs text-center">Fikstür başlatmak için en az 2 oyuncu gerekli.</p>}
@@ -859,7 +1642,6 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                     <h2 className="text-2xl font-bold text-white uppercase tracking-widest drop-shadow-lg">{selectedPlayer.name}</h2>
                     <div className="text-emerald-400 text-xs font-bold tracking-wide">{selectedPlayer.team}</div>
                  </div>
-                 {selectedPlayer.avatar && <img src={selectedPlayer.avatar} className="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-overlay" onError={(e) => {e.target.onerror = null; e.target.src='https://placehold.co/400x100/1e293b/94a3b8?text=AV'}}/>}
               </div>
               
               <div className="flex justify-around p-4 border-b border-slate-800 bg-slate-900/50">
@@ -878,19 +1660,33 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                 <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Fikstür Geçmişi</h3>
+                 {/* Maç istatistikleri */}
+                 <div className="flex justify-between items-center mb-4">
+                   <h3 className="text-xs font-bold text-slate-500 uppercase">Fikstür Geçmişi</h3>
+                   <div className="text-xs text-slate-400">
+                     {(() => {
+                       const playerMatches = matches.filter(m => m.home === selectedPlayer.id || m.away === selectedPlayer.id);
+                       const playedMatches = playerMatches.filter(m => m.played);
+                       const remainingMatches = playerMatches.length - playedMatches.length;
+                       return `${playedMatches.length}/${playerMatches.length} maç (${remainingMatches} maç kaldı)`;
+                     })()}
+                   </div>
+                 </div>
+                 
                  {matches.filter(m => m.home === selectedPlayer.id || m.away === selectedPlayer.id).sort((a,b) => a.round - b.round).map(m => {
                     const isHome = m.home === selectedPlayer.id;
                     const opponentId = isHome ? m.away : m.home;
                     const opponent = players.find(p => p.id === opponentId);
                     
+                    // Skor değerlerini başta tanımla
+                    const myScore = m.played ? parseInt(isHome ? m.homeScore : m.awayScore) : 0;
+                    const oppScore = m.played ? parseInt(isHome ? m.awayScore : m.homeScore) : 0;
+                    
                     let resultClass = "border-slate-800";
                     if(m.played) {
-                       const myScore = parseInt(isHome ? m.homeScore : m.awayScore);
-                       const oppScore = parseInt(isHome ? m.awayScore : m.homeScore);
-                       if(myScore > oppScore) resultClass = "border-emerald-900/50 bg-emerald-900/10";
-                       else if(myScore < oppScore) resultClass = "border-red-900/50 bg-red-900/10";
-                       else resultClass = "border-slate-700 bg-slate-800/30";
+                       if(myScore > oppScore) resultClass = "border-emerald-500 bg-emerald-900/30 font-bold";
+                       else if(myScore < oppScore) resultClass = "border-red-500 bg-red-900/30 font-bold";
+                       else resultClass = "border-slate-500 bg-slate-800/50 font-bold";
                     }
 
                     return (
@@ -902,8 +1698,40 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                 <div className="text-sm font-bold text-white uppercase">{opponent?.name}</div>
                              </div>
                           </div>
-                          <div className="font-mono font-bold text-white">
-                             {m.played ? `${m.homeScore} - ${m.awayScore}` : <span className="text-slate-600 text-xs">v</span>}
+                          <div className="font-mono font-extrabold text-lg">
+                             {m.played ? (
+                               <span className="text-white">
+                                 {isHome ? (
+                                   myScore > oppScore ? 
+                                     <span className="text-emerald-400">{m.homeScore}</span> : 
+                                     myScore < oppScore ? 
+                                       <span className="text-red-400">{m.homeScore}</span> : 
+                                       <span className="text-slate-300">{m.homeScore}</span>
+                                 ) : (
+                                   myScore > oppScore ? 
+                                     <span className="text-emerald-400">{m.awayScore}</span> : 
+                                     myScore < oppScore ? 
+                                       <span className="text-red-400">{m.awayScore}</span> : 
+                                       <span className="text-slate-300">{m.awayScore}</span>
+                                 )}
+                                 <span className="text-slate-500 mx-1">-</span>
+                                 {isHome ? (
+                                   oppScore > myScore ? 
+                                     <span className="text-emerald-400">{m.awayScore}</span> : 
+                                     oppScore < myScore ? 
+                                       <span className="text-red-400">{m.awayScore}</span> : 
+                                       <span className="text-slate-300">{m.awayScore}</span>
+                                 ) : (
+                                   oppScore > myScore ? 
+                                     <span className="text-emerald-400">{m.homeScore}</span> : 
+                                     oppScore < myScore ? 
+                                       <span className="text-red-400">{m.homeScore}</span> : 
+                                       <span className="text-slate-300">{m.homeScore}</span>
+                                 )}
+                               </span>
+                             ) : (
+                               <span className="text-slate-600 text-xs">v</span>
+                             )}
                           </div>
                        </div>
                     );
@@ -935,7 +1763,6 @@ const NavBtn = ({ icon: Icon, label, active, onClick }) => (
 function AddPlayerForm({ onAdd }) {
   const [name, setName] = useState('');
   const [team, setTeam] = useState('');
-  const [avatar, setAvatar] = useState('');
   
   return (
     <div className="flex flex-col gap-2">
@@ -948,11 +1775,7 @@ function AddPlayerForm({ onAdd }) {
         </div>
       </div>
       <div className="flex gap-2">
-        <div className="relative flex-1">
-           <ImageIcon size={14} className="absolute left-3 top-3 text-slate-500" />
-           <input placeholder="Resim URL (Ops.)" value={avatar} onChange={e => setAvatar(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 pl-8 text-white text-sm focus:border-emerald-500 outline-none" />
-        </div>
-        <button disabled={!name.trim()} onClick={() => { onAdd(name, team, avatar); setName(''); setTeam(''); setAvatar(''); }} className="bg-emerald-600 disabled:opacity-50 text-white p-2 rounded-lg w-12 flex items-center justify-center">
+        <button disabled={!name.trim()} onClick={() => { onAdd(name, team); setName(''); setTeam(''); }} className="bg-emerald-600 disabled:opacity-50 text-white p-2 rounded-lg w-full flex items-center justify-center">
           <Plus size={20} />
         </button>
       </div>
