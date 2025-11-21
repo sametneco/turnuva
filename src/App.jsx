@@ -1750,40 +1750,46 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
       {/* Recent Round Results Bar - Fixed at Top */}
       {activeTab === 'standings' && getRecentRoundMatches().length > 0 && (
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700 py-2 overflow-hidden sticky top-14 z-20">
-          <div className="max-w-4xl mx-auto relative">
-            <div className="flex items-center justify-between gap-2 px-2 flex-nowrap overflow-x-auto">
-              <div className="flex-shrink-0 text-[10px] font-bold text-emerald-400 uppercase flex items-center gap-1 whitespace-nowrap">
-                <Zap size={12} />
-                Son Karşılaşmalar
-              </div>
-              <div className="flex items-center gap-2 flex-nowrap min-w-max">
-                {getRecentRoundMatches().map((match) => {
-                  const homePlayer = players.find(p => p.id === match.home);
-                  const awayPlayer = players.find(p => p.id === match.away);
-                  
-                  if (!homePlayer || !awayPlayer) return null;
-                  
-                  const homeScore = parseInt(match.homeScore);
-                  const awayScore = parseInt(match.awayScore);
-                  const winner = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw';
-                  
-                  return (
-                    <div key={match.id} className="flex items-center gap-2 bg-slate-900/80 rounded-lg border border-slate-700 px-3 py-1.5 flex-shrink-0">
-                      <span className="text-xs font-bold text-slate-300 truncate max-w-[60px]">{homePlayer.name}</span>
-                      <div className="flex items-center gap-1">
-                        <span className={`font-bold text-xs ${winner === 'home' ? 'text-emerald-400' : winner === 'draw' ? 'text-slate-300' : 'text-slate-500'}`}>
-                          {homeScore}
-                        </span>
-                        <span className="text-slate-500">-</span>
-                        <span className={`font-bold text-xs ${winner === 'away' ? 'text-emerald-400' : winner === 'draw' ? 'text-slate-300' : 'text-slate-500'}`}>
-                          {awayScore}
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-slate-300 truncate max-w-[60px]">{awayPlayer.name}</span>
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Zap size={12} className="text-emerald-400" />
+              <h3 className="text-[11px] font-bold text-emerald-400 uppercase">Son Karşılaşmalar</h3>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
+              {getRecentRoundMatches().map((match) => {
+                const homePlayer = players.find(p => p.id === match.home);
+                const awayPlayer = players.find(p => p.id === match.away);
+                
+                if (!homePlayer || !awayPlayer) return null;
+                
+                const homeScore = parseInt(match.homeScore);
+                const awayScore = parseInt(match.awayScore);
+                const winner = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw';
+                
+                return (
+                  <div key={match.id} className="flex items-center gap-1.5 bg-slate-900/80 rounded-lg border border-slate-700 px-2 py-1.5 flex-shrink-0">
+                    <span className={`text-[10px] font-bold ${
+                      winner === 'home' ? 'text-emerald-400' : 'text-slate-300'
+                    }`}>{homePlayer.name}</span>
+                    <div className="flex items-center gap-0.5">
+                      <span className={`font-bold text-xs ${
+                        winner === 'home' ? 'text-emerald-400' : winner === 'draw' ? 'text-slate-300' : 'text-slate-500'
+                      }`}>
+                        {homeScore}
+                      </span>
+                      <span className="text-slate-500 text-[10px]">-</span>
+                      <span className={`font-bold text-xs ${
+                        winner === 'away' ? 'text-emerald-400' : winner === 'draw' ? 'text-slate-300' : 'text-slate-500'
+                      }`}>
+                        {awayScore}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
+                    <span className={`text-[10px] font-bold ${
+                      winner === 'away' ? 'text-emerald-400' : 'text-slate-300'
+                    }`}>{awayPlayer.name}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
