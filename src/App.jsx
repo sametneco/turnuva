@@ -44,7 +44,8 @@ import {
   BarChart3,
   Target,
   Award,
-  Flame
+  Flame,
+  Sparkles
 } from 'lucide-react';
 
 // --- Firebase Init ---
@@ -1904,17 +1905,17 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                 
                 {/* Tahminler Bölümü */}
                 {settings.started && matches.some(m => !m.played) && (
-                  <div className="mt-4 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl border border-white/50 py-2 px-4">
+                  <div className="mt-4 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl border border-white/50 py-2 px-3">
                     <div className="flex items-center justify-center gap-2 mb-2">
-                      <Star size={12} className="text-amber-400" />
-                      <h3 className="text-[11px] font-bold text-amber-400 uppercase">Sıradaki Karşılaşmalar</h3>
+                      <Star size={11} className="text-amber-400" />
+                      <h3 className="text-[10px] font-bold text-amber-400 uppercase">Sıradaki Karşılaşmalar</h3>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 justify-center">
                       {getUpcomingRoundPredictions().slice(0, 4).map((match, index) => (
-                        <div key={match.id} className="flex items-center gap-1.5 bg-slate-900/80 rounded-lg border border-slate-700 px-2 py-1.5 flex-shrink-0">
-                          <span className="text-[10px] font-bold text-slate-300">{match.homePlayer.name}</span>
+                        <div key={match.id} className="flex items-center gap-1 bg-slate-900/80 rounded-lg border border-slate-700 px-1.5 py-1 flex-shrink-0">
+                          <span className="text-[9px] font-bold text-slate-300 truncate max-w-[60px]">{match.homePlayer.name}</span>
                           <div className="flex items-center gap-0.5">
-                            <span className={`font-bold text-xs ${
+                            <span className={`font-bold text-[10px] ${
                               match.homeWinProbability !== null && match.homeWinProbability > match.awayWinProbability 
                                 ? 'text-emerald-400' 
                                 : match.homeWinProbability !== null && match.homeWinProbability < match.awayWinProbability 
@@ -1923,8 +1924,8 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                             }`}>
                               {match.homeWinProbability !== null ? `${match.homeWinProbability}%` : '?'}
                             </span>
-                            <span className="text-slate-500 text-[10px]">-</span>
-                            <span className={`font-bold text-xs ${
+                            <span className="text-slate-500 text-[9px]">-</span>
+                            <span className={`font-bold text-[10px] ${
                               match.awayWinProbability !== null && match.awayWinProbability > match.homeWinProbability 
                                 ? 'text-emerald-400' 
                                 : match.awayWinProbability !== null && match.awayWinProbability < match.homeWinProbability 
@@ -1934,7 +1935,7 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                               {match.awayWinProbability !== null ? `${match.awayWinProbability}%` : '?'}
                             </span>
                           </div>
-                          <span className="text-[10px] font-bold text-slate-300">{match.awayPlayer.name}</span>
+                          <span className="text-[9px] font-bold text-slate-300 truncate max-w-[60px]">{match.awayPlayer.name}</span>
                         </div>
                       ))}
                     </div>
@@ -2374,6 +2375,333 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
           </div>
         )}
 
+        {/* HEAD TO HEAD STATS */}
+        {activeTab === 'predictions' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 space-y-4">
+            {!settings.started ? (
+              <div className="text-center py-12 text-slate-500">Turnuva başladığında kafa kafaya istatistikler görünecek.</div>
+            ) : (() => {
+              const playedMatchesCount = matches.filter(m => m.played).length;
+              
+              if (playedMatchesCount === 0) {
+                return (
+                  <div className="text-center py-12 space-y-3">
+                    <Sparkles size={48} className="mx-auto text-slate-600" />
+                    <p className="text-slate-500">Henüz maç oynanmadı!</p>
+                    <p className="text-xs text-slate-600">İlk skorlar girildikten sonra eğlenceli istatistikler burada görünecek.</p>
+                  </div>
+                );
+              }
+
+              // Kafa kafaya istatistikleri hesapla
+              const headToHeadStats = [];
+              
+              players.forEach(p1 => {
+                players.forEach(p2 => {
+                  if (p1.id !== p2.id) {
+                    const matchesBetween = matches.filter(m => 
+                      m.played && 
+                      ((m.home === p1.id && m.away === p2.id) || (m.home === p2.id && m.away === p1.id))
+                    );
+                    
+                    if (matchesBetween.length > 0) {
+                      let p1Wins = 0;
+                      let p2Wins = 0;
+                      let draws = 0;
+                      let p1Goals = 0;
+                      let p2Goals = 0;
+                      let biggestWin = null;
+                      let maxDiff = 0;
+                      
+                      matchesBetween.forEach(m => {
+                        const p1IsHome = m.home === p1.id;
+                        const p1Score = parseInt(p1IsHome ? m.homeScore : m.awayScore);
+                        const p2Score = parseInt(p1IsHome ? m.awayScore : m.homeScore);
+                        
+                        p1Goals += p1Score;
+                        p2Goals += p2Score;
+                        
+                        if (p1Score > p2Score) {
+                          p1Wins++;
+                          const diff = p1Score - p2Score;
+                          if (diff > maxDiff) {
+                            maxDiff = diff;
+                            biggestWin = { winner: p1, loser: p2, score: `${p1Score}-${p2Score}`, diff };
+                          }
+                        } else if (p2Score > p1Score) {
+                          p2Wins++;
+                          const diff = p2Score - p1Score;
+                          if (diff > maxDiff) {
+                            maxDiff = diff;
+                            biggestWin = { winner: p2, loser: p1, score: `${p2Score}-${p1Score}`, diff };
+                          }
+                        } else {
+                          draws++;
+                        }
+                      });
+                      
+                      // Sadece bir kez ekle (p1 < p2 sıralamasında)
+                      if (p1.id < p2.id) {
+                        headToHeadStats.push({
+                          p1,
+                          p2,
+                          p1Wins,
+                          p2Wins,
+                          draws,
+                          p1Goals,
+                          p2Goals,
+                          totalMatches: matchesBetween.length,
+                          biggestWin
+                        });
+                      }
+                    }
+                  }
+                });
+              });
+
+              // En çok gol atan oyuncu
+              const topScorer = standings.length > 0 ? standings.reduce((max, p) => p.gf > max.gf ? p : max, standings[0]) : null;
+              
+              // En çok gol yiyen
+              const worstDefense = standings.length > 0 ? standings.reduce((max, p) => p.ga > max.ga ? p : max, standings[0]) : null;
+              
+              // En büyük farklı galibiyet
+              let biggestVictory = null;
+              let biggestVictoryDiff = 0;
+              matches.filter(m => m.played).forEach(m => {
+                const diff = Math.abs(parseInt(m.homeScore) - parseInt(m.awayScore));
+                if (diff > biggestVictoryDiff) {
+                  biggestVictoryDiff = diff;
+                  const winner = parseInt(m.homeScore) > parseInt(m.awayScore) 
+                    ? players.find(p => p.id === m.home)
+                    : players.find(p => p.id === m.away);
+                  const loser = parseInt(m.homeScore) > parseInt(m.awayScore)
+                    ? players.find(p => p.id === m.away)
+                    : players.find(p => p.id === m.home);
+                  biggestVictory = { winner, loser, score: `${m.homeScore}-${m.awayScore}`, diff };
+                }
+              });
+
+              return (
+                <>
+                  {/* Başlık */}
+                  <div className="bg-gradient-to-br from-pink-900/20 to-slate-900/50 rounded-xl border border-pink-500/30 p-5 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl"></div>
+                    <div className="relative z-10">
+                      <h3 className="text-sm font-bold text-pink-400 mb-1 flex items-center gap-2">
+                        <Sparkles className="animate-pulse" size={18} />
+                        Eğlenceli İstatistikler
+                      </h3>
+                      <p className="text-xs text-slate-400">Kim kimi domine ediyor? 🔥</p>
+                    </div>
+                  </div>
+
+                  {/* Genel İstatistikler */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* En Çok Gol Atan */}
+                    {topScorer && topScorer.gf > 0 && (
+                      <div className="bg-gradient-to-br from-emerald-900/30 to-slate-900/50 rounded-xl border border-emerald-500/30 p-4 relative overflow-hidden">
+                        <div className="absolute -top-2 -right-2 w-16 h-16 bg-emerald-500/20 rounded-full blur-2xl"></div>
+                        <div className="relative z-10">
+                          <Target size={14} className="text-emerald-400 mb-2" />
+                          <div className="text-[10px] text-emerald-400 font-bold uppercase mb-1">Gol Makinesi</div>
+                          <div className="font-black text-white text-sm uppercase truncate">{topScorer.name}</div>
+                          <div className="text-2xl font-black text-emerald-400 mt-1">{topScorer.gf} ⚽</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* En Çok Gol Yiyen */}
+                    {worstDefense && worstDefense.ga > 0 && (
+                      <div className="bg-gradient-to-br from-red-900/30 to-slate-900/50 rounded-xl border border-red-500/30 p-4 relative overflow-hidden">
+                        <div className="absolute -top-2 -right-2 w-16 h-16 bg-red-500/20 rounded-full blur-2xl"></div>
+                        <div className="relative z-10">
+                          <AlertTriangle size={14} className="text-red-400 mb-2" />
+                          <div className="text-[10px] text-red-400 font-bold uppercase mb-1">Kale Tıkır</div>
+                          <div className="font-black text-white text-sm uppercase truncate">{worstDefense.name}</div>
+                          <div className="text-2xl font-black text-red-400 mt-1">{worstDefense.ga} 🥅</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* En Büyük Fark */}
+                  {biggestVictory && biggestVictory.diff >= 2 && (
+                    <div className="bg-gradient-to-br from-amber-900/20 to-slate-900/50 rounded-xl border border-amber-500/30 p-4 overflow-hidden relative">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-3xl"></div>
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Flame size={16} className="text-amber-400" />
+                          <h4 className="text-xs font-bold text-amber-400 uppercase">Turnuvanın En Büyük Farkı</h4>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="text-xs text-slate-500 mb-1">Galibiyet</div>
+                            <div className="font-black text-emerald-400 uppercase text-sm truncate">{biggestVictory.winner?.name}</div>
+                          </div>
+                          <div className="px-4 py-2 bg-slate-900/50 rounded-lg border border-slate-700">
+                            <div className="text-2xl font-black text-white">{biggestVictory.score}</div>
+                          </div>
+                          <div className="flex-1 text-right">
+                            <div className="text-xs text-slate-500 mb-1">Mağlubiyet</div>
+                            <div className="font-black text-red-400 uppercase text-sm truncate">{biggestVictory.loser?.name}</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-center">
+                          <span className="text-[10px] text-amber-400 font-bold">{biggestVictory.diff} GOL FARK!</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Kafa Kafaya Rekabetler */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <div className="w-8 h-px bg-gradient-to-r from-transparent via-pink-500/50 to-transparent flex-1"></div>
+                      <h4 className="text-xs font-bold text-pink-400 uppercase">Kafa Kafaya</h4>
+                      <div className="w-8 h-px bg-gradient-to-r from-transparent via-pink-500/50 to-transparent flex-1"></div>
+                    </div>
+
+                    {headToHeadStats
+                      .filter(stat => stat.totalMatches >= 2)
+                      .sort((a, b) => b.totalMatches - a.totalMatches)
+                      .map((stat, idx) => {
+                        const isDominating = stat.p1Wins >= 2 && stat.p1Wins > stat.p2Wins;
+                        const isDominating2 = stat.p2Wins >= 2 && stat.p2Wins > stat.p1Wins;
+                        const isBalanced = Math.abs(stat.p1Wins - stat.p2Wins) <= 1;
+                        
+                        return (
+                          <div key={`${stat.p1.id}-${stat.p2.id}`} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-all">
+                            {/* Header */}
+                            <div className="p-3 bg-slate-900/30 border-b border-slate-800 flex items-center justify-between">
+                              <div className="text-[10px] text-slate-500 font-bold uppercase">
+                                {stat.totalMatches} Maç • {stat.p1Goals + stat.p2Goals} Gol
+                              </div>
+                              {isBalanced ? (
+                                <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                                  <Zap size={10} className="text-amber-400" />
+                                  <span className="text-[9px] font-bold text-amber-400">KAPIŞMA</span>
+                                </div>
+                              ) : isDominating || isDominating2 ? (
+                                <div className="flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/30">
+                                  <Flame size={10} className="text-red-400" />
+                                  <span className="text-[9px] font-bold text-red-400">DOMİNASYON</span>
+                                </div>
+                              ) : null}
+                            </div>
+
+                            {/* Players */}
+                            <div className="p-4">
+                              <div className="flex items-center justify-between gap-4">
+                                {/* Player 1 */}
+                                <div className="flex-1 text-center">
+                                  <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center font-bold text-lg border-2 mb-2 ${
+                                    isDominating
+                                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400 shadow-lg shadow-emerald-500/30'
+                                      : 'bg-slate-800 border-slate-700 text-slate-300'
+                                  }`}>
+                                    {stat.p1.name.charAt(0)}
+                                  </div>
+                                  <div className={`font-bold text-xs uppercase truncate ${
+                                    isDominating ? 'text-emerald-400' : 'text-white'
+                                  }`}>
+                                    {stat.p1.name}
+                                  </div>
+                                  {stat.p1.team && (
+                                    <div className="text-[9px] text-slate-500 truncate mt-0.5">{stat.p1.team}</div>
+                                  )}
+                                  <div className="mt-2 space-y-1">
+                                    <div className="text-2xl font-black text-emerald-400">{stat.p1Wins}</div>
+                                    <div className="text-[9px] text-slate-500 uppercase font-bold">Galibiyet</div>
+                                  </div>
+                                </div>
+
+                                {/* VS & Stats */}
+                                <div className="flex flex-col items-center gap-2">
+                                  <div className="text-xs font-bold text-slate-500">VS</div>
+                                  {stat.draws > 0 && (
+                                    <div className="bg-slate-800 px-2 py-1 rounded">
+                                      <div className="text-xs font-bold text-slate-400">{stat.draws} Berabere</div>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                    <span className="font-bold text-emerald-400">{stat.p1Goals}</span>
+                                    <span>-</span>
+                                    <span className="font-bold text-red-400">{stat.p2Goals}</span>
+                                  </div>
+                                </div>
+
+                                {/* Player 2 */}
+                                <div className="flex-1 text-center">
+                                  <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center font-bold text-lg border-2 mb-2 ${
+                                    isDominating2
+                                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400 shadow-lg shadow-emerald-500/30'
+                                      : 'bg-slate-800 border-slate-700 text-slate-300'
+                                  }`}>
+                                    {stat.p2.name.charAt(0)}
+                                  </div>
+                                  <div className={`font-bold text-xs uppercase truncate ${
+                                    isDominating2 ? 'text-emerald-400' : 'text-white'
+                                  }`}>
+                                    {stat.p2.name}
+                                  </div>
+                                  {stat.p2.team && (
+                                    <div className="text-[9px] text-slate-500 truncate mt-0.5">{stat.p2.team}</div>
+                                  )}
+                                  <div className="mt-2 space-y-1">
+                                    <div className="text-2xl font-black text-emerald-400">{stat.p2Wins}</div>
+                                    <div className="text-[9px] text-slate-500 uppercase font-bold">Galibiyet</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Eğlenceli Yorum */}
+                              {isDominating && (
+                                <div className="mt-3 p-2 bg-emerald-900/10 rounded-lg border border-emerald-500/20">
+                                  <p className="text-[10px] text-emerald-400 text-center font-bold">
+                                    🔥 {stat.p1.name}, {stat.p2.name}'ı {stat.p1Wins} kez yendi!
+                                  </p>
+                                </div>
+                              )}
+                              {isDominating2 && (
+                                <div className="mt-3 p-2 bg-emerald-900/10 rounded-lg border border-emerald-500/20">
+                                  <p className="text-[10px] text-emerald-400 text-center font-bold">
+                                    🔥 {stat.p2.name}, {stat.p1.name}'ı {stat.p2Wins} kez yendi!
+                                  </p>
+                                </div>
+                              )}
+                              {stat.p1Goals > stat.p2Goals * 2 && (
+                                <div className="mt-3 p-2 bg-purple-900/10 rounded-lg border border-purple-500/20">
+                                  <p className="text-[10px] text-purple-400 text-center font-bold">
+                                    ⚽ {stat.p1.name}, {stat.p2.name}'a karşı gol yağdırıyor!
+                                  </p>
+                                </div>
+                              )}
+                              {stat.p2Goals > stat.p1Goals * 2 && (
+                                <div className="mt-3 p-2 bg-purple-900/10 rounded-lg border border-purple-500/20">
+                                  <p className="text-[10px] text-purple-400 text-center font-bold">
+                                    ⚽ {stat.p2.name}, {stat.p1.name}'a karşı gol yağdırıyor!
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Bilgi Notu */}
+                  <div className="bg-slate-900/30 border border-slate-800 rounded-lg p-3">
+                    <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+                      <span className="text-pink-400 font-bold">💡 İpucu:</span> Daha fazla maç oynandıkça istatistikler daha eğlenceli hale gelecek!
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
         {/* ADMIN SETTINGS */}
         {activeTab === 'admin' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 space-y-4">
@@ -2620,6 +2948,7 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
         <div className="flex justify-around items-center h-14">
           <NavBtn icon={Trophy} label="Puanlar" active={activeTab === 'standings'} onClick={() => setActiveTab('standings')} />
           <NavBtn icon={BarChart3} label="İstatistik" active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} />
+          <NavBtn icon={Sparkles} label="Rekabet" active={activeTab === 'predictions'} onClick={() => setActiveTab('predictions')} />
           <NavBtn icon={Calendar} label="Fikstür" active={activeTab === 'fixtures'} onClick={() => setActiveTab('fixtures')} />
           {isAdmin && <NavBtn icon={Users} label="Yönetim" active={activeTab === 'admin'} onClick={() => setActiveTab('admin')} />}
         </div>
