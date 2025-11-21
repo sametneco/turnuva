@@ -1835,7 +1835,6 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                   <table className="w-full text-sm border-collapse">
                     <thead className="bg-slate-900 text-[10px] text-slate-400 uppercase font-bold">
                       <tr>
-                        <th className="px-2 py-3 w-8 text-center">#</th>
                         <th className="px-2 py-3 text-left">Oyuncu</th>
                         <th className="px-2 py-3 text-center">Form</th>
                         <th className="px-1 py-3 w-8 text-center bg-slate-800/50 text-white">O</th>
@@ -1863,23 +1862,22 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                             }}
                             className={`cursor-pointer hover:bg-slate-800/60 transition-colors ${idx < 1 ? 'bg-gradient-to-r from-emerald-900/10 to-transparent border-t border-white/50' : ''}`}
                           >
-                            <td className="px-2 py-4 text-center font-medium text-slate-500 relative">
-                              <div className="flex flex-col items-center justify-center gap-1">
-                                 <span>{idx + 1}</span>
-                                 {settings.started && row.played > 0 && <TrendIcon size={12} className={trendColor} />}
-                              </div>
-                              {idx === 0 && <div className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-500 rounded-r"></div>}
-                            </td>
                             <td className="px-2 py-4">
                               <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border-2 flex items-center justify-center text-slate-400 text-sm font-bold shadow-lg ${idx === 0 ? 'first-place-glow border-amber-400' : 'border-slate-700'}`}>
-                                  {row.name.charAt(0)}
+                                <div className={`relative w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border-2 flex items-center justify-center text-sm font-bold shadow-lg ${idx === 0 ? 'first-place-glow border-amber-400 text-amber-400' : 'border-slate-700 text-slate-400'}`}>
+                                  {idx + 1}
+                                  {idx === 0 && <div className="absolute -left-3 top-0 bottom-0 w-1 bg-emerald-500 rounded-r"></div>}
                                 </div>
                                 <div className="min-w-0">
                                   <div className="font-bold text-white text-sm uppercase tracking-wide truncate">{row.name}</div>
                                   <div className="text-[10px] text-slate-400 truncate flex items-center gap-1">
                                      {row.team || 'Bağımsız'}
                                   </div>
+                                  {settings.started && row.played > 0 && (
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                      <TrendIcon size={10} className={trendColor} />
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -1906,50 +1904,37 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                 
                 {/* Tahminler Bölümü */}
                 {settings.started && matches.some(m => !m.played) && (
-                  <div className="mt-4 bg-slate-900/50 rounded-xl border border-white/50 p-3">
-                    <h3 className="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1">
-                      <Star className="text-amber-400" size={14} />
-                      Sıradaki Maç Potansiyel Sonuç - #{getUpcomingRoundPredictions()[0]?.round || ''} Tur
-                    </h3>
-                    <div className="flex flex-wrap gap-3">
+                  <div className="mt-4 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl border border-white/50 py-2 px-4">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Star size={12} className="text-amber-400" />
+                      <h3 className="text-[11px] font-bold text-amber-400 uppercase">Sıradaki Karşılaşmalar</h3>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
                       {getUpcomingRoundPredictions().slice(0, 4).map((match, index) => (
-                        <div key={match.id} className="flex-1 min-w-[150px] bg-slate-800 rounded-lg border border-slate-700/50 p-3 flex items-center gap-3 transition-all duration-300 hover:border-slate-600">
-                          {/* Home Team */}
-                          <div className="flex flex-col items-center flex-1">
-                            <div className="text-[9px] font-bold text-slate-400 mb-1">EV</div>
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 mb-2 transition-all duration-300"
-                              style={{
-                                background: match.homeWinProbability !== null && match.homeWinProbability > match.awayWinProbability ? '#10b981' : (match.homeWinProbability !== null && match.homeWinProbability < match.awayWinProbability ? '#ef4444' : '#64748b'),
-                                borderColor: match.homeWinProbability !== null && match.homeWinProbability > match.awayWinProbability ? '#10b981' : (match.homeWinProbability !== null && match.homeWinProbability < match.awayWinProbability ? '#ef4444' : '#64748b')
-                              }}>
+                        <div key={match.id} className="flex items-center gap-1.5 bg-slate-900/80 rounded-lg border border-slate-700 px-2 py-1.5 flex-shrink-0">
+                          <span className="text-[10px] font-bold text-slate-300">{match.homePlayer.name}</span>
+                          <div className="flex items-center gap-0.5">
+                            <span className={`font-bold text-xs ${
+                              match.homeWinProbability !== null && match.homeWinProbability > match.awayWinProbability 
+                                ? 'text-emerald-400' 
+                                : match.homeWinProbability !== null && match.homeWinProbability < match.awayWinProbability 
+                                  ? 'text-red-400'
+                                  : 'text-slate-400'
+                            }`}>
                               {match.homeWinProbability !== null ? `${match.homeWinProbability}%` : '?'}
-                            </div>
-                            <div className="text-[9px] font-semibold text-slate-300 text-center max-w-[70px] truncate leading-tight">
-                              {match.homePlayer.name}
-                            </div>
-                          </div>
-                          
-                          {/* VS Separator */}
-                          <div className="flex flex-col items-center justify-center mx-1">
-                            <div className="text-slate-500 font-bold text-[9px] mb-1">#</div>
-                            <div className="text-slate-500 font-bold text-xs">VS</div>
-                            <div className="text-[8px] font-bold text-slate-500 mt-1">{match.round}</div>
-                          </div>
-                          
-                          {/* Away Team */}
-                          <div className="flex flex-col items-center flex-1">
-                            <div className="text-[9px] font-bold text-slate-400 mb-1">DEP</div>
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 mb-2 transition-all duration-300"
-                              style={{
-                                background: match.awayWinProbability !== null && match.awayWinProbability > match.homeWinProbability ? '#10b981' : (match.awayWinProbability !== null && match.awayWinProbability < match.homeWinProbability ? '#ef4444' : '#64748b'),
-                                borderColor: match.awayWinProbability !== null && match.awayWinProbability > match.homeWinProbability ? '#10b981' : (match.awayWinProbability !== null && match.awayWinProbability < match.homeWinProbability ? '#ef4444' : '#64748b')
-                              }}>
+                            </span>
+                            <span className="text-slate-500 text-[10px]">-</span>
+                            <span className={`font-bold text-xs ${
+                              match.awayWinProbability !== null && match.awayWinProbability > match.homeWinProbability 
+                                ? 'text-emerald-400' 
+                                : match.awayWinProbability !== null && match.awayWinProbability < match.homeWinProbability 
+                                  ? 'text-red-400'
+                                  : 'text-slate-400'
+                            }`}>
                               {match.awayWinProbability !== null ? `${match.awayWinProbability}%` : '?'}
-                            </div>
-                            <div className="text-[9px] font-semibold text-slate-300 text-center max-w-[70px] truncate leading-tight">
-                              {match.awayPlayer.name}
-                            </div>
+                            </span>
                           </div>
+                          <span className="text-[10px] font-bold text-slate-300">{match.awayPlayer.name}</span>
                         </div>
                       ))}
                     </div>
