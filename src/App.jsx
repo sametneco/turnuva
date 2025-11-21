@@ -1795,7 +1795,9 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
           <div className="max-w-4xl mx-auto relative h-8">
             <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-slate-800 to-transparent z-10"></div>
             <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-slate-800 to-transparent z-10"></div>
-            <div className="animate-marquee whitespace-nowrap absolute inset-0 flex items-center">
+            <div className={`whitespace-nowrap absolute inset-0 flex items-center ${
+              matches.filter(m => m.played).length > 0 ? 'animate-marquee-fast' : 'animate-marquee'
+            }`}>
               {liveNews.map((item, index) => (
                 <div key={`${item.id}_${index}`} className="mx-6 flex items-center gap-3 text-base">
                   <span className="bg-emerald-900/30 text-emerald-400 px-3 py-1 rounded font-bold text-sm">{item.time}</span>
