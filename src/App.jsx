@@ -2228,11 +2228,6 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                       : 'linear-gradient(to right, rgba(251, 191, 36, 0.1), transparent)' // Diğerleri açık sarı
                               }}>
                             </div>
-                            {isLeader && !isChampionGuaranteed && (
-                              <div className="absolute right-2 top-2">
-                                <Star className="text-amber-400 fill-amber-400 animate-pulse" size={14} />
-                              </div>
-                            )}
                           </div>
                         );
                       });
