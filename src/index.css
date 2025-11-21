@@ -24,6 +24,13 @@ body {
   min-height: 100vh;
 }
 
+/* Custom animation for first place player */
+@keyframes first-place-glow {
+  0% { box-shadow: 0 0 5px rgba(251, 191, 36, 0.6), 0 0 10px rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.9), 0 0 25px rgba(251, 191, 36, 0.7), 0 0 35px rgba(251, 191, 36, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(251, 191, 36, 0.6), 0 0 10px rgba(251, 191, 36, 0.4); }
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -38,7 +45,95 @@ body {
 }
 
 .animate-marquee {
-  animation: marquee 45s linear infinite; /* Even slower animation from 35s to 45s */
+  animation: marquee 80s linear infinite; /* Slower animation from 45s to 80s */
   display: flex;
   width: max-content;
+}
+
+/* Player Detail Card Enhancements */
+.player-card-gradient {
+  background: linear-gradient(135deg, #065f46 0%, #0f172a 100%);
+}
+
+.form-indicator-W {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+}
+
+.form-indicator-D {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  box-shadow: 0 4px 6px rgba(100, 116, 139, 0.2);
+}
+
+.form-indicator-L {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+}
+
+.match-result-win {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.match-result-loss {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.match-result-draw {
+  background: rgba(100, 116, 139, 0.15);
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+.upcoming-match {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+/* First Place Player Glow Effect */
+@keyframes glow {
+  0% { box-shadow: 0 0 5px #10b981, 0 0 10px #10b981; }
+  50% { box-shadow: 0 0 10px #10b981, 0 0 20px #10b981; }
+  100% { box-shadow: 0 0 5px #10b981, 0 0 10px #10b981; }
+}
+
+.glowing-border {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.ring-glow {
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6), 0 0 15px rgba(16, 185, 129, 0.4);
+}
+
+/* Statistics Page Animations */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-in {
+  animation: slideInUp 0.4s ease-out;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.slide-in-from-bottom-2 {
+  animation: slideInUp 0.5s ease-out;
 }
