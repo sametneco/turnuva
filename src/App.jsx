@@ -389,8 +389,14 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
   const [showCreate, setShowCreate] = useState(false);
   const [showChampionshipManager, setShowChampionshipManager] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState('BURAK');
+  const [champCount, setChampCount] = useState(0);
   
   const PLAYERS = ['BURAK', 'HASAN', 'SAMET', 'ERHAN'];
+
+  // Seçili oyuncu değiştiğinde şampiyonluk sayısını güncelle
+  useEffect(() => {
+    setChampCount(championships[selectedPlayer] || 0);
+  }, [selectedPlayer, championships]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-gray-100 font-sans pb-safe">
@@ -495,17 +501,19 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                       type="number"
                       min="0"
                       placeholder="Sayı"
-                      value={championships[selectedPlayer] || 0}
-                      onChange={(e) => {
-                        const newValue = parseInt(e.target.value) || 0;
-                        updateChampionships(selectedPlayer, newValue);
-                      }}
+                      value={champCount}
+                      onChange={(e) => setChampCount(parseInt(e.target.value) || 0)}
                       className="w-20 bg-slate-950 border border-slate-700 rounded p-2 text-white text-sm text-center font-bold"
                     />
-                    <Trophy size={16} className="text-yellow-400" />
+                    <button
+                      onClick={() => updateChampionships(selectedPlayer, champCount)}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-xs font-bold"
+                    >
+                      Güncelle
+                    </button>
                   </div>
                   <p className="text-[10px] text-slate-500 text-center">
-                    Sayıyı değiştirin, otomatik kaydedilir
+                    Sayıyı gir ve Güncelle'ye bas
                   </p>
                 </div>
               </div>
