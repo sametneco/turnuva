@@ -383,8 +383,9 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
   const [newName, setNewName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showChampionshipManager, setShowChampionshipManager] = useState(false);
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [newPlayerChamps, setNewPlayerChamps] = useState(1);
+  const [selectedPlayer, setSelectedPlayer] = useState('BURAK');
+  
+  const PLAYERS = ['BURAK', 'HASAN', 'SAMET', 'ERHAN'];
 
   return (
     <div className="min-h-screen bg-slate-950 text-gray-100 font-sans pb-safe">
@@ -432,9 +433,10 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
             </div>
             {Object.keys(championships).length > 0 ? (
               <div className="space-y-2">
-                {Object.entries(championships)
-                  .sort(([,a], [,b]) => b - a)
-                  .map(([name, count]) => (
+                {PLAYERS.map(name => {
+                  const count = championships[name] || 0;
+                  if (count === 0 && !isAdmin) return null;
+                  return (
                     <div key={name} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg">
                       <div className="flex items-center gap-2">
                         <Trophy size={14} className="text-yellow-500" />
@@ -460,7 +462,8 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                         )}
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             ) : (
               isAdmin && (
@@ -469,35 +472,27 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                 </div>
               )
             )}
-            {isAdmin && showChampionshipManager && (
+            {isAdmin && (
               <div className="mt-3 pt-3 border-t border-yellow-700/30">
                 <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    placeholder="Oyuncu Adı"
-                    value={newPlayerName}
-                    onChange={(e) => setNewPlayerName(e.target.value.toUpperCase())}
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs uppercase"
-                  />
-                  <input 
-                    type="number"
-                    placeholder="Sayı"
-                    value={newPlayerChamps}
-                    onChange={(e) => setNewPlayerChamps(parseInt(e.target.value) || 0)}
-                    className="w-16 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs text-center"
-                    min="1"
-                  />
+                  <select
+                    value={selectedPlayer}
+                    onChange={(e) => setSelectedPlayer(e.target.value)}
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs uppercase font-bold"
+                  >
+                    {PLAYERS.map(player => (
+                      <option key={player} value={player}>{player}</option>
+                    ))}
+                  </select>
                   <button 
                     onClick={() => {
-                      if (newPlayerName.trim()) {
-                        updateChampionships(newPlayerName.trim(), newPlayerChamps);
-                        setNewPlayerName('');
-                        setNewPlayerChamps(1);
-                      }
+                      const currentCount = championships[selectedPlayer] || 0;
+                      updateChampionships(selectedPlayer, currentCount + 1);
                     }}
-                    className="bg-yellow-600 text-white px-3 rounded text-xs font-bold"
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 rounded text-xs font-bold flex items-center gap-1"
                   >
-                    Ekle
+                    <Trophy size={12} />
+                    Şampiyonluk Ekle
                   </button>
                 </div>
               </div>
@@ -1940,7 +1935,16 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                               </td>
                               <td className="px-4 py-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="font-bold text-gray-900 text-base uppercase tracking-wide">{row.name}</div>
+                                  <div>
+                                    <div className="font-bold text-gray-900 text-base uppercase tracking-wide">{row.name}</div>
+                                    {championships[row.name] > 0 && (
+                                      <div className="flex items-center gap-0.5 mt-0.5">
+                                        {[...Array(championships[row.name])].map((_, i) => (
+                                          <Star key={i} size={10} className="text-yellow-500 fill-yellow-500" />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-3 py-4 text-center font-semibold text-gray-700">{row.played}</td>
@@ -2933,31 +2937,9 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                          {players.length < 2 && <p className="text-red-400 text-xs text-center">Fikstür başlatmak için en az 2 oyuncu gerekli.</p>}
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        {matches.length > 0 && !matches.every(m => m.played) && standings.length > 0 && (
-                          <button 
-                            onClick={() => {
-                              openConfirmModal(
-                                'Turnuvayı Sonlandır',
-                                `${standings[0].name} lider durumda! Turnuvayı şimdi sonlandırmak ister misiniz? Kalan maçlar oynanmayacak ve ${standings[0].name} şampiyon ilan edilecek.`,
-                                async () => {
-                                  // Şampiyonluk sayısını güncelle
-                                  const currentChamps = championships[standings[0].name] || 0;
-                                  await updateChampionships(standings[0].name, currentChamps + 1);
-                                  // Turnuva durumunu güncelle
-                                  await updateStatus('Tamamlandı');
-                                }
-                              );
-                            }}
-                            className="w-full bg-gradient-to-r from-yellow-600 to-yellow-700 text-white py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:from-yellow-700 hover:to-yellow-800 shadow-lg shadow-yellow-600/20"
-                          >
-                            <Trophy size={16} /> Turnuvayı Sonlandır (Şampiyon: {standings[0].name})
-                          </button>
-                        )}
-                        <button onClick={handleResetFixtures} className="w-full border border-red-900 text-red-500 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-900/10">
-                          <RefreshCw size={16} /> Fikstürü Sıfırla (Başa Dön)
-                        </button>
-                      </div>
+                      <button onClick={handleResetFixtures} className="w-full border border-red-900 text-red-500 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-900/10">
+                        <RefreshCw size={16} /> Fikstürü Sıfırla (Başa Dön)
+                      </button>
                     )}
                 </div>
               </>
