@@ -290,12 +290,21 @@ export default function App() {
     }
     try {
       const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
-      const newChampionships = {...championships, [playerName]: count};
+      
+      // Önce mevcut veriyi oku
+      const docSnap = await getDoc(champRef);
+      const currentData = docSnap.exists() ? docSnap.data().players || {} : {};
+      
+      const newChampionships = {...currentData, [playerName]: count};
+      console.log('Mevcut data:', currentData);
       console.log('Yeni championships:', newChampionships);
-      await setDoc(champRef, { players: newChampionships }, { merge: true });
+      
+      // Dökümanı oluştur veya güncelle
+      await setDoc(champRef, { players: newChampionships });
       console.log(`${playerName} şampiyonluk sayısı güncellendi: ${count}`);
     } catch (e) {
       console.error("Şampiyonluk güncelleme hatası:", e);
+      console.error("Hata detayı:", e.code, e.message);
     }
   };
 
