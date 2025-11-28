@@ -474,26 +474,31 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
             )}
             {isAdmin && (
               <div className="mt-3 pt-3 border-t border-yellow-700/30">
-                <div className="flex gap-2">
-                  <select
-                    value={selectedPlayer}
-                    onChange={(e) => setSelectedPlayer(e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs uppercase font-bold"
-                  >
-                    {PLAYERS.map(player => (
-                      <option key={player} value={player}>{player}</option>
-                    ))}
-                  </select>
-                  <button 
-                    onClick={() => {
-                      const currentCount = championships[selectedPlayer] || 0;
-                      updateChampionships(selectedPlayer, currentCount + 1);
-                    }}
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 rounded text-xs font-bold flex items-center gap-1"
-                  >
-                    <Trophy size={12} />
-                    Şampiyonluk Ekle
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedPlayer}
+                      onChange={(e) => setSelectedPlayer(e.target.value)}
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs uppercase font-bold"
+                    >
+                      {PLAYERS.map(player => (
+                        <option key={player} value={player}>{player}</option>
+                      ))}
+                    </select>
+                    <button 
+                      onClick={() => {
+                        const currentCount = championships[selectedPlayer] || 0;
+                        updateChampionships(selectedPlayer, currentCount + 1);
+                      }}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 rounded text-xs font-bold flex items-center gap-1"
+                    >
+                      <Trophy size={12} />
+                      Şampiyonluk Ekle
+                    </button>
+                  </div>
+                  <div className="text-center text-xs text-slate-400">
+                    <span className="font-bold text-yellow-400">{selectedPlayer}</span> - Toplam: <span className="font-bold text-yellow-400">{championships[selectedPlayer] || 0}</span> Şampiyonluk
+                  </div>
                 </div>
               </div>
             )}
@@ -1937,7 +1942,7 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                 <div className="flex items-center gap-3">
                                   <div>
                                     <div className="font-bold text-gray-900 text-base uppercase tracking-wide">{row.name}</div>
-                                    {championships[row.name] > 0 && (
+                                    {championships && championships[row.name] > 0 && (
                                       <div className="flex items-center gap-0.5 mt-0.5">
                                         {[...Array(championships[row.name])].map((_, i) => (
                                           <Star key={i} size={10} className="text-yellow-500 fill-yellow-500" />
