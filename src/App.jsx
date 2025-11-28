@@ -2911,7 +2911,8 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                               </div>
                             </div>
                             <select
-                              value={currentChamp}
+                              key={`${p.name}-${currentChamp}`}
+                              defaultValue={currentChamp}
                               onChange={(e) => {
                                 const newValue = parseInt(e.target.value);
                                 console.log('Dropdown değişti:', { player: p.name, newValue, isAdmin });
