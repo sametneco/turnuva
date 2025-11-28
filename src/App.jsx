@@ -88,6 +88,7 @@ export default function App() {
   const [registry, setRegistry] = useState([]);
   const [tournamentData, setTournamentData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [championships, setChampionships] = useState({});
 
   // --- Confirmation Modal State ---
   const [confirmModal, setConfirmModal] = useState({
@@ -143,6 +144,20 @@ export default function App() {
         // Eğer Firebase'e bağlanılamıyorsa, mock/boş veri göster
         setRegistry([]);
         setLoading(false); 
+    });
+    return () => unsub();
+  }, [user]);
+
+  // --- Championships Sync ---
+  useEffect(() => {
+    if (!user) return;
+    const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
+    const unsub = onSnapshot(champRef, (docSnap) => {
+      if (docSnap.exists()) setChampionships(docSnap.data().players || {});
+      else setChampionships({});
+    }, (err) => { 
+        console.error("Championships hatası:", err); 
+        setChampionships({}); 
     });
     return () => unsub();
   }, [user]);
@@ -262,6 +277,18 @@ export default function App() {
     else alert('Hatalı PIN!'); // Simple alert is fine for non-critical UI feedback
   };
 
+  const updateChampionships = async (playerName, count) => {
+    if (!isAdmin) return;
+    try {
+      const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
+      const newChampionships = {...championships, [playerName]: count};
+      await setDoc(champRef, { players: newChampionships });
+      console.log(`${playerName} şampiyonluk sayısı güncellendi: ${count}`);
+    } catch (e) {
+      console.error("Şampiyonluk güncelleme hatası:", e);
+    }
+  };
+
   if (view === 'lobby') {
     return (
       <>
@@ -270,6 +297,8 @@ export default function App() {
           adminPin={adminPin} setAdminPin={setAdminPin} handleAdminLogin={handleAdminLogin}
           createTournament={createTournament} handleDeleteClick={handleDeleteClick}
           onSelect={(id) => { setActiveTournamentId(id); setView('tournament'); }}
+          championships={championships}
+          updateChampionships={updateChampionships}
         />
         <CustomConfirmModal {...confirmModal} onClose={closeConfirmModal} />
       </>
@@ -300,6 +329,7 @@ export default function App() {
         onRename={(newName) => renameTournament(activeTournamentId, newName)}
         onDelete={() => handleDeleteClick(activeTournamentId, tournamentData?.settings?.name || 'Bu Turnuva')}
         openConfirmModal={openConfirmModal}
+        updateChampionships={updateChampionships}
       />
       <CustomConfirmModal {...confirmModal} onClose={closeConfirmModal} />
     </>
@@ -348,9 +378,12 @@ function CustomConfirmModal({ isOpen, title, message, onConfirm, onClose }) {
 // ==========================================
 // LOBBY VIEW
 // ==========================================
-function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect }) {
+function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships }) {
   const [newName, setNewName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showChampionshipManager, setShowChampionshipManager] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [newPlayerChamps, setNewPlayerChamps] = useState(1);
 
   return (
     <div className="min-h-screen bg-slate-950 text-gray-100 font-sans pb-safe">
@@ -375,6 +408,91 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
             <Lock size={16} className="text-slate-500" />
             <input id="adminPinInput" type="password" placeholder="Yönetici PIN" value={adminPin} onChange={(e) => setAdminPin(e.target.value)} className="bg-transparent border-none text-sm text-white placeholder:text-slate-600 focus:ring-0 w-full outline-none" />
             <button onClick={handleAdminLogin} className="text-xs bg-slate-800 px-3 py-1 rounded text-slate-300">Giriş</button>
+          </div>
+        )}
+
+        {/* Şampiyonluk Tablosu */}
+        {Object.keys(championships).length > 0 && (
+          <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-yellow-800/20 to-amber-900/30 border border-yellow-700/30 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Trophy size={16} className="text-yellow-400" />
+                <h3 className="text-sm font-bold text-yellow-300 uppercase">Şampiyonluklar</h3>
+              </div>
+              {isAdmin && (
+                <button 
+                  onClick={() => setShowChampionshipManager(!showChampionshipManager)}
+                  className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
+                >
+                  <Settings size={12} />
+                  Yönet
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {Object.entries(championships)
+                .sort(([,a], [,b]) => b - a)
+                .map(([name, count]) => (
+                  <div key={name} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Trophy size={14} className="text-yellow-500" />
+                      <span className="text-sm font-bold text-white uppercase">{name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-black text-yellow-400">{count}</span>
+                      {isAdmin && showChampionshipManager && (
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => updateChampionships(name, count + 1)}
+                            className="w-6 h-6 bg-emerald-600 rounded text-white text-xs flex items-center justify-center"
+                          >
+                            +
+                          </button>
+                          <button 
+                            onClick={() => count > 0 && updateChampionships(name, count - 1)}
+                            className="w-6 h-6 bg-red-600 rounded text-white text-xs flex items-center justify-center"
+                          >
+                            -
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            {isAdmin && showChampionshipManager && (
+              <div className="mt-3 pt-3 border-t border-yellow-700/30">
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    placeholder="Oyuncu Adı"
+                    value={newPlayerName}
+                    onChange={(e) => setNewPlayerName(e.target.value.toUpperCase())}
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs uppercase"
+                  />
+                  <input 
+                    type="number"
+                    placeholder="Sayı"
+                    value={newPlayerChamps}
+                    onChange={(e) => setNewPlayerChamps(parseInt(e.target.value) || 0)}
+                    className="w-16 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs text-center"
+                    min="1"
+                  />
+                  <button 
+                    onClick={() => {
+                      if (newPlayerName.trim()) {
+                        updateChampionships(newPlayerName.trim(), newPlayerChamps);
+                        setNewPlayerName('');
+                        setNewPlayerChamps(1);
+                      }
+                    }}
+                    className="bg-yellow-600 text-white px-3 rounded text-xs font-bold"
+                  >
+                    Ekle
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -433,13 +551,14 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
 // ==========================================
 // TOURNAMENT VIEW
 // ==========================================
-function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateStatus, onRename, onDelete, openConfirmModal }) {
+function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateStatus, onRename, onDelete, openConfirmModal, updateChampionships }) {
   const [activeTab, setActiveTab] = useState('standings');
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [settings, setSettings] = useState({ started: false, legs: 2 });
   const [editNameMode, setEditNameMode] = useState(false);
   const [tempName, setTempName] = useState('');
+  const [championships, setChampionships] = useState({});
 
   // Skor düzenleme modu için state
   const [scoreEditMode, setScoreEditMode] = useState({});
@@ -455,6 +574,19 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
       setTempName(data.settings?.name || '');
     }
   }, [data]);
+
+  // Championships Sync for TournamentView
+  useEffect(() => {
+    const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
+    const unsub = onSnapshot(champRef, (docSnap) => {
+      if (docSnap.exists()) setChampionships(docSnap.data().players || {});
+      else setChampionships({});
+    }, (err) => { 
+        console.error("Championships hatası:", err); 
+        setChampionships({}); 
+    });
+    return () => unsub();
+  }, []);
 
   // --- Standings Logic ---
   const standings = useMemo(() => {
@@ -2799,9 +2931,31 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                          {players.length < 2 && <p className="text-red-400 text-xs text-center">Fikstür başlatmak için en az 2 oyuncu gerekli.</p>}
                       </div>
                     ) : (
-                      <button onClick={handleResetFixtures} className="w-full border border-red-900 text-red-500 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-900/10">
-                        <RefreshCw size={16} /> Fikstürü Sıfırla (Başa Dön)
-                      </button>
+                      <div className="space-y-2">
+                        {matches.length > 0 && !matches.every(m => m.played) && standings.length > 0 && (
+                          <button 
+                            onClick={() => {
+                              openConfirmModal(
+                                'Turnuvayı Sonlandır',
+                                `${standings[0].name} lider durumda! Turnuvayı şimdi sonlandırmak ister misiniz? Kalan maçlar oynanmayacak ve ${standings[0].name} şampiyon ilan edilecek.`,
+                                async () => {
+                                  // Şampiyonluk sayısını güncelle
+                                  const currentChamps = championships[standings[0].name] || 0;
+                                  await updateChampionships(standings[0].name, currentChamps + 1);
+                                  // Turnuva durumunu güncelle
+                                  await updateStatus('Tamamlandı');
+                                }
+                              );
+                            }}
+                            className="w-full bg-gradient-to-r from-yellow-600 to-yellow-700 text-white py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:from-yellow-700 hover:to-yellow-800 shadow-lg shadow-yellow-600/20"
+                          >
+                            <Trophy size={16} /> Turnuvayı Sonlandır (Şampiyon: {standings[0].name})
+                          </button>
+                        )}
+                        <button onClick={handleResetFixtures} className="w-full border border-red-900 text-red-500 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-900/10">
+                          <RefreshCw size={16} /> Fikstürü Sıfırla (Başa Dön)
+                        </button>
+                      </div>
                     )}
                 </div>
               </>
