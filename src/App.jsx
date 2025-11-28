@@ -153,7 +153,12 @@ export default function App() {
     if (!user) return;
     const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
     const unsub = onSnapshot(champRef, (docSnap) => {
-      if (docSnap.exists()) setChampionships(docSnap.data().players || {});
+      console.log('Championships snapshot:', docSnap.exists(), docSnap.data());
+      if (docSnap.exists()) {
+        const champData = docSnap.data().players || {};
+        console.log('Championships data:', champData);
+        setChampionships(champData);
+      }
       else setChampionships({});
     }, (err) => { 
         console.error("Championships hatası:", err); 
@@ -1878,13 +1883,17 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                 <div className="flex items-center gap-3">
                                   <div>
                                     <div className="font-bold text-gray-900 text-base uppercase tracking-wide">{row.name}</div>
-                                    {championships && championships[row.name] > 0 && (
-                                      <div className="flex items-center gap-0.5 mt-0.5">
-                                        {[...Array(championships[row.name])].map((_, i) => (
-                                          <Star key={i} size={10} className="text-yellow-500 fill-yellow-500" />
-                                        ))}
-                                      </div>
-                                    )}
+                                    {(() => {
+                                      const champCount = championships && championships[row.name];
+                                      console.log('Yıldız kontrol:', { name: row.name, champCount, championships });
+                                      return champCount > 0 && (
+                                        <div className="flex items-center gap-0.5 mt-0.5">
+                                          {[...Array(champCount)].map((_, i) => (
+                                            <Star key={i} size={10} className="text-yellow-500 fill-yellow-500" />
+                                          ))}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </td>
