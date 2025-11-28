@@ -1748,92 +1748,12 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
         </div>
       </div>
       
-      {/* Recent Round Results Bar - Fixed at Top - Valorant Inspired */}
-      {activeTab === 'standings' && getRecentRoundMatches().length > 0 && (
-        <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 border-b border-purple-500/30 py-4 overflow-hidden sticky top-14 z-20 shadow-xl">
-          <div className="max-w-4xl mx-auto px-4">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <div className="relative">
-                <Zap size={16} className="text-yellow-400 animate-pulse" />
-                <div className="absolute inset-0 blur-md bg-yellow-400/50"></div>
-              </div>
-              <h3 className="text-sm font-black text-white uppercase tracking-widest" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '0.15em' }}>
-                Son Karşılaşmalar
-              </h3>
-              <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-purple-400/50 to-transparent"></div>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {getRecentRoundMatches().map((match, idx) => {
-                const homePlayer = players.find(p => p.id === match.home);
-                const awayPlayer = players.find(p => p.id === match.away);
-                
-                if (!homePlayer || !awayPlayer) return null;
-                
-                const homeScore = parseInt(match.homeScore);
-                const awayScore = parseInt(match.awayScore);
-                const winner = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw';
-                
-                return (
-                  <div 
-                    key={match.id} 
-                    className="relative group flex items-center gap-1.5 sm:gap-2 bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm rounded-xl border border-purple-500/30 px-2 sm:px-4 py-2 flex-shrink-0 shadow-lg hover:shadow-purple-500/30 hover:shadow-xl transition-all duration-300 hover:scale-105"
-                    style={{ animation: `fadeInUp 0.${idx + 3}s ease-out` }}
-                  >
-                    {/* Glow effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/5 to-purple-500/0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    
-                    {/* Home Team */}
-                    <div className="flex items-center gap-1 relative z-10">
-                      <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
-                        winner === 'home' ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse' : 'bg-slate-600'
-                      }`}></div>
-                      <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wide truncate max-w-[60px] sm:max-w-none ${
-                        winner === 'home' ? 'text-white' : 'text-slate-400'
-                      }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                        {homePlayer.name}
-                      </span>
-                    </div>
-                    
-                    {/* Score */}
-                    <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 bg-slate-950/50 rounded-lg border border-purple-500/20 relative z-10">
-                      <span className={`font-black text-sm sm:text-base ${
-                        winner === 'home' ? 'text-yellow-400' : winner === 'draw' ? 'text-white' : 'text-slate-500'
-                      }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                        {homeScore}
-                      </span>
-                      <span className="text-purple-400 text-[10px] sm:text-xs font-bold">—</span>
-                      <span className={`font-black text-sm sm:text-base ${
-                        winner === 'away' ? 'text-yellow-400' : winner === 'draw' ? 'text-white' : 'text-slate-500'
-                      }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                        {awayScore}
-                      </span>
-                    </div>
-                    
-                    {/* Away Team */}
-                    <div className="flex items-center gap-1 relative z-10">
-                      <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wide truncate max-w-[60px] sm:max-w-none ${
-                        winner === 'away' ? 'text-white' : 'text-slate-400'
-                      }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                        {awayPlayer.name}
-                      </span>
-                      <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
-                        winner === 'away' ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse' : 'bg-slate-600'
-                      }`}></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
 
       <div className="max-w-4xl mx-auto p-4">
         
         {/* STANDINGS */}
         {activeTab === 'standings' && (
-          <div className="animate-in fade-in slide-in-from-bottom-2">
+          <div className="animate-in fade-in slide-in-from-bottom-2 space-y-6">
             {!settings.started && players.length === 0 ? (
               <div className="text-center py-12 text-slate-500">Katılımcı eklemek için yönetici sekmesine gidin.</div>
             ) : (
@@ -1845,140 +1765,174 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                   </h2>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl bg-gradient-to-b from-gray-100 to-gray-200 shadow-2xl">
-                  <table className="w-full text-sm border-collapse">
-                    <thead className="bg-gradient-to-r from-purple-600 via-purple-700 to-purple-800">
-                      <tr className="text-white">
-                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider" colSpan="2">Takım</th>
-                        <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">O</th>
-                        <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">A</th>
-                        <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">Y</th>
-                        <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">Av</th>
-                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider w-16">P</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {standings.map((row, idx) => {
-                         const isTopFour = idx < 4;
-                         const isBottomThree = idx >= standings.length - 3;
-                         
-                         return (
-                          <tr 
-                            key={row.id} 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setSelectedPlayer(row);
-                            }}
-                            className={`cursor-pointer hover:bg-gray-50 transition-colors ${
-                              isTopFour ? 'border-l-4 border-purple-500' : 
-                              isBottomThree ? 'border-l-4 border-red-400' : 
-                              'border-l-4 border-transparent'
-                            }`}
-                          >
-                            <td className="px-4 py-4 w-12">
-                              <div className="flex items-center justify-center">
-                                <span className="text-base font-bold text-gray-700">{idx + 1}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className="font-bold text-gray-900 text-base uppercase tracking-wide">{row.name}</div>
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 text-center font-semibold text-gray-700">{row.played}</td>
-                            <td className="px-3 py-4 text-center font-semibold text-emerald-600">{row.gf}</td>
-                            <td className="px-3 py-4 text-center font-semibold text-red-500">{row.ga}</td>
-                            <td className="px-3 py-4 text-center font-semibold text-gray-700">{row.gd > 0 ? `+${row.gd}` : row.gd}</td>
-                            <td className="px-4 py-4 text-center font-black text-gray-900 text-xl">
-                              {row.points}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                
-                {/* Tahminler Bölümü - Valorant Inspired */}
-                {settings.started && matches.some(m => !m.played) && (
-                  <div className="mt-6 relative">
-                    {/* Background glow */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 blur-3xl rounded-3xl"></div>
-                    
-                    <div className="relative bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-xl rounded-2xl border border-purple-500/30 py-4 px-4 shadow-2xl">
-                      <div className="flex items-center justify-center gap-3 mb-4">
-                        <div className="h-px flex-1 max-w-[80px] bg-gradient-to-r from-transparent to-purple-400/50"></div>
-                        <div className="relative">
-                          <Star size={14} className="text-yellow-400 animate-pulse" />
-                          <div className="absolute inset-0 blur-md bg-yellow-400/50"></div>
-                        </div>
-                        <h3 className="text-sm font-black text-white uppercase tracking-widest" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '0.15em' }}>
-                          Sıradaki Karşılaşmalar
-                        </h3>
-                        <div className="h-px flex-1 max-w-[80px] bg-gradient-to-l from-transparent to-purple-400/50"></div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 gap-3">
-                        {getUpcomingRoundPredictions().slice(0, 3).map((match, index) => {
-                          return (
-                            <div 
-                              key={match.id} 
-                              className="group relative bg-gradient-to-r from-slate-950/80 to-slate-900/80 rounded-xl border border-purple-500/20 p-4 hover:border-purple-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"
-                              style={{ animation: `fadeInUp 0.${index + 4}s ease-out` }}
+                {/* Puan Durumu ve Maçlar - Flex Layout */}
+                <div className="flex flex-col md:flex-row gap-4">
+                  {/* Sol: Puan Durumu Tablosu */}
+                  <div className="flex-1 overflow-hidden rounded-2xl bg-gradient-to-b from-gray-100 to-gray-200 shadow-2xl">
+                    <table className="w-full text-sm border-collapse">
+                      <thead className="bg-gradient-to-r from-purple-600 via-purple-700 to-purple-800">
+                        <tr className="text-white">
+                          <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider" colSpan="2">Takım</th>
+                          <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">O</th>
+                          <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">A</th>
+                          <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">Y</th>
+                          <th className="px-3 py-4 text-center text-xs font-bold uppercase tracking-wider w-12">Av</th>
+                          <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider w-16">P</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {standings.map((row, idx) => {
+                           const isTopFour = idx < 4;
+                           const isBottomThree = idx >= standings.length - 3;
+                           
+                           return (
+                            <tr 
+                              key={row.id} 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSelectedPlayer(row);
+                              }}
+                              className={`cursor-pointer hover:bg-gray-50 transition-colors ${
+                                isTopFour ? 'border-l-4 border-purple-500' : 
+                                isBottomThree ? 'border-l-4 border-red-400' : 
+                                'border-l-4 border-transparent'
+                              }`}
                             >
-                              {/* Top glow line */}
-                              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/30 to-transparent"></div>
-                              
-                              <div className="flex items-center justify-between gap-4">
-                                {/* Home Team */}
-                                <div className="flex-1 flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 shadow-lg shadow-purple-500/30 flex items-center justify-center transition-all duration-300">
-                                    <span className="text-white font-black text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                                      {match.homePlayer.name.charAt(0)}
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-bold uppercase tracking-wide truncate text-white" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                                      {match.homePlayer.name}
-                                    </div>
-                                  </div>
+                              <td className="px-4 py-4 w-12">
+                                <div className="flex items-center justify-center">
+                                  <span className="text-base font-bold text-gray-700">{idx + 1}</span>
                                 </div>
-                                
-                                {/* VS Badge - Valorant Style */}
-                                <div className="flex items-center gap-2 px-4 py-2 bg-slate-950/70 rounded-lg border border-purple-500/20">
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-black text-xl text-purple-400" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                                      VS
-                                    </span>
-                                    <span className="text-[8px] text-purple-400/60 font-bold uppercase tracking-wider">Gelecek</span>
-                                  </div>
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="font-bold text-gray-900 text-base uppercase tracking-wide">{row.name}</div>
                                 </div>
-                                
-                                {/* Away Team */}
-                                <div className="flex-1 flex items-center gap-3 flex-row-reverse">
-                                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 shadow-lg shadow-purple-500/30 flex items-center justify-center transition-all duration-300">
-                                    <span className="text-white font-black text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                                      {match.awayPlayer.name.charAt(0)}
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 min-w-0 text-right">
-                                    <div className="text-sm font-bold uppercase tracking-wide truncate text-white" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                                      {match.awayPlayer.name}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Bottom glow effect on hover */}
-                              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/0 group-hover:via-purple-400/50 to-transparent transition-all duration-300"></div>
-                            </div>
+                              </td>
+                              <td className="px-3 py-4 text-center font-semibold text-gray-700">{row.played}</td>
+                              <td className="px-3 py-4 text-center font-semibold text-emerald-600">{row.gf}</td>
+                              <td className="px-3 py-4 text-center font-semibold text-red-500">{row.ga}</td>
+                              <td className="px-3 py-4 text-center font-semibold text-gray-700">{row.gd > 0 ? `+${row.gd}` : row.gd}</td>
+                              <td className="px-4 py-4 text-center font-black text-gray-900 text-xl">
+                                {row.points}
+                              </td>
+                            </tr>
                           );
                         })}
-                      </div>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Sağ: Maçlar Kutusu */}
+                  <div className="w-full md:w-80 flex-shrink-0">
+                    <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-slate-700 shadow-2xl p-4 space-y-4 h-full">
+                      {/* Sıradaki Maçlar */}
+                      {settings.started && matches.some(m => !m.played) && (
+                        <div className="space-y-2">
+                          <h3 className="text-xs font-bold text-orange-400 uppercase tracking-wider text-center">
+                            Sıradaki Maçlar
+                          </h3>
+                          <div className="grid grid-cols-2 gap-2">
+                            {getUpcomingRoundPredictions().slice(0, 2).map((match, idx) => (
+                              <div 
+                                key={match.id} 
+                                className="bg-gradient-to-r from-slate-800/80 via-orange-900/40 to-slate-800/80 rounded-lg border border-orange-500/30 p-1.5"
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  {/* Home Team */}
+                                  <div className="flex-1 text-left min-w-0">
+                                    <span className="text-[10px] font-black uppercase tracking-tight block truncate text-white">
+                                      {match.homePlayer.name}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* VS Badge */}
+                                  <div className="flex items-center px-1.5 py-0.5 bg-gradient-to-r from-orange-600 to-yellow-600 rounded flex-shrink-0">
+                                    <span className="text-xs font-black text-white">VS</span>
+                                  </div>
+                                  
+                                  {/* Away Team */}
+                                  <div className="flex-1 text-right min-w-0">
+                                    <span className="text-[10px] font-black uppercase tracking-tight block truncate text-white">
+                                      {match.awayPlayer.name}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Son Maç Skorları */}
+                      {getRecentRoundMatches().length > 0 && (
+                        <div className="space-y-2">
+                          <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider text-center">
+                            Son Maç Skorları
+                          </h3>
+                          <div className="grid grid-cols-2 gap-2">
+                            {getRecentRoundMatches().slice(0, 2).map((match, idx) => {
+                              const homePlayer = players.find(p => p.id === match.home);
+                              const awayPlayer = players.find(p => p.id === match.away);
+                              
+                              if (!homePlayer || !awayPlayer) return null;
+                              
+                              const homeScore = parseInt(match.homeScore);
+                              const awayScore = parseInt(match.awayScore);
+                              const winner = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw';
+                              
+                              return (
+                                <div 
+                                  key={match.id} 
+                                  className="bg-gradient-to-r from-slate-800/80 via-purple-900/40 to-slate-800/80 rounded-lg border border-purple-500/30 p-1.5"
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    {/* Home Team */}
+                                    <div className="flex-1 text-left min-w-0 relative">
+                                      <span className={`text-[10px] font-black uppercase tracking-tight block truncate ${
+                                        winner === 'home' ? 'text-white' : 'text-slate-400'
+                                      }`}>
+                                        {homePlayer.name}
+                                      </span>
+                                      {/* Win/Draw/Loss Indicator */}
+                                      <div className={`absolute -bottom-1.5 left-0 right-0 h-0.5 rounded-full ${
+                                        winner === 'home' ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
+                                        winner === 'draw' ? 'bg-gradient-to-r from-yellow-500 to-orange-400' :
+                                        'bg-gradient-to-r from-red-500 to-rose-400'
+                                      }`}></div>
+                                    </div>
+                                    
+                                    {/* Score */}
+                                    <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded flex-shrink-0">
+                                      <span className="text-sm font-black text-white">{homeScore}</span>
+                                      <span className="text-[10px] text-white/60">-</span>
+                                      <span className="text-sm font-black text-white">{awayScore}</span>
+                                    </div>
+                                    
+                                    {/* Away Team */}
+                                    <div className="flex-1 text-right min-w-0 relative">
+                                      <span className={`text-[10px] font-black uppercase tracking-tight block truncate ${
+                                        winner === 'away' ? 'text-white' : 'text-slate-400'
+                                      }`}>
+                                        {awayPlayer.name}
+                                      </span>
+                                      {/* Win/Draw/Loss Indicator */}
+                                      <div className={`absolute -bottom-1.5 left-0 right-0 h-0.5 rounded-full ${
+                                        winner === 'away' ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
+                                        winner === 'draw' ? 'bg-gradient-to-r from-yellow-500 to-orange-400' :
+                                        'bg-gradient-to-r from-red-500 to-rose-400'
+                                      }`}></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
               </>
             )}
           </div>
