@@ -412,7 +412,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
         )}
 
         {/* Şampiyonluk Tablosu */}
-        {Object.keys(championships).length > 0 && (
+        {(Object.keys(championships).length > 0 || isAdmin) && (
           <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-yellow-800/20 to-amber-900/30 border border-yellow-700/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -429,37 +429,45 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                 </button>
               )}
             </div>
-            <div className="space-y-2">
-              {Object.entries(championships)
-                .sort(([,a], [,b]) => b - a)
-                .map(([name, count]) => (
-                  <div key={name} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Trophy size={14} className="text-yellow-500" />
-                      <span className="text-sm font-bold text-white uppercase">{name}</span>
+            {Object.keys(championships).length > 0 ? (
+              <div className="space-y-2">
+                {Object.entries(championships)
+                  .sort(([,a], [,b]) => b - a)
+                  .map(([name, count]) => (
+                    <div key={name} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Trophy size={14} className="text-yellow-500" />
+                        <span className="text-sm font-bold text-white uppercase">{name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-black text-yellow-400">{count}</span>
+                        {isAdmin && showChampionshipManager && (
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => updateChampionships(name, count + 1)}
+                              className="w-6 h-6 bg-emerald-600 rounded text-white text-xs flex items-center justify-center"
+                            >
+                              +
+                            </button>
+                            <button 
+                              onClick={() => count > 0 && updateChampionships(name, count - 1)}
+                              className="w-6 h-6 bg-red-600 rounded text-white text-xs flex items-center justify-center"
+                            >
+                              -
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-black text-yellow-400">{count}</span>
-                      {isAdmin && showChampionshipManager && (
-                        <div className="flex gap-1">
-                          <button 
-                            onClick={() => updateChampionships(name, count + 1)}
-                            className="w-6 h-6 bg-emerald-600 rounded text-white text-xs flex items-center justify-center"
-                          >
-                            +
-                          </button>
-                          <button 
-                            onClick={() => count > 0 && updateChampionships(name, count - 1)}
-                            className="w-6 h-6 bg-red-600 rounded text-white text-xs flex items-center justify-center"
-                          >
-                            -
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
+                  ))}
+              </div>
+            ) : (
+              isAdmin && (
+                <div className="text-center py-3 text-slate-500 text-xs">
+                  Henüz şampiyonluk kaydı yok. Aşağıdan ekleyebilirsiniz.
+                </div>
+              )
+            )}
             {isAdmin && showChampionshipManager && (
               <div className="mt-3 pt-3 border-t border-yellow-700/30">
                 <div className="flex gap-2">
