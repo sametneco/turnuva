@@ -278,10 +278,15 @@ export default function App() {
   };
 
   const updateChampionships = async (playerName, count) => {
-    if (!isAdmin) return;
+    console.log('updateChampionships çağrıldı:', { playerName, count, isAdmin });
+    if (!isAdmin) {
+      console.log('Admin değil, işlem iptal edildi');
+      return;
+    }
     try {
       const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
       const newChampionships = {...championships, [playerName]: count};
+      console.log('Yeni championships:', newChampionships);
       await setDoc(champRef, { players: newChampionships });
       console.log(`${playerName} şampiyonluk sayısı güncellendi: ${count}`);
     } catch (e) {
