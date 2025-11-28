@@ -287,7 +287,7 @@ export default function App() {
       const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
       const newChampionships = {...championships, [playerName]: count};
       console.log('Yeni championships:', newChampionships);
-      await setDoc(champRef, { players: newChampionships });
+      await setDoc(champRef, { players: newChampionships }, { merge: true });
       console.log(`${playerName} şampiyonluk sayısı güncellendi: ${count}`);
     } catch (e) {
       console.error("Şampiyonluk güncelleme hatası:", e);
