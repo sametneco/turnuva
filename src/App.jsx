@@ -1870,7 +1870,14 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
     );
   };
 
-  if (!data) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-900">Yükleniyor...</div>;
+  if (!data) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 font-medium">Yükleniyor...</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans pb-24">
