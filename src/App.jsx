@@ -1762,7 +1762,7 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
               </h3>
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-purple-400/50 to-transparent"></div>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 justify-center">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {getRecentRoundMatches().map((match, idx) => {
                 const homePlayer = players.find(p => p.id === match.home);
                 const awayPlayer = players.find(p => p.id === match.away);
@@ -1776,18 +1776,18 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                 return (
                   <div 
                     key={match.id} 
-                    className="relative group flex items-center gap-2 bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm rounded-xl border border-purple-500/30 px-4 py-2.5 flex-shrink-0 shadow-lg hover:shadow-purple-500/30 hover:shadow-xl transition-all duration-300 hover:scale-105"
+                    className="relative group flex items-center gap-1.5 sm:gap-2 bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm rounded-xl border border-purple-500/30 px-2 sm:px-4 py-2 flex-shrink-0 shadow-lg hover:shadow-purple-500/30 hover:shadow-xl transition-all duration-300 hover:scale-105"
                     style={{ animation: `fadeInUp 0.${idx + 3}s ease-out` }}
                   >
                     {/* Glow effect */}
                     <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/5 to-purple-500/0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     
                     {/* Home Team */}
-                    <div className="flex items-center gap-1.5 relative z-10">
-                      <div className={`w-2 h-2 rounded-full ${
+                    <div className="flex items-center gap-1 relative z-10">
+                      <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
                         winner === 'home' ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse' : 'bg-slate-600'
                       }`}></div>
-                      <span className={`text-xs font-bold uppercase tracking-wide ${
+                      <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wide truncate max-w-[60px] sm:max-w-none ${
                         winner === 'home' ? 'text-white' : 'text-slate-400'
                       }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                         {homePlayer.name}
@@ -1795,14 +1795,14 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                     </div>
                     
                     {/* Score */}
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-950/50 rounded-lg border border-purple-500/20 relative z-10">
-                      <span className={`font-black text-base ${
+                    <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 bg-slate-950/50 rounded-lg border border-purple-500/20 relative z-10">
+                      <span className={`font-black text-sm sm:text-base ${
                         winner === 'home' ? 'text-yellow-400' : winner === 'draw' ? 'text-white' : 'text-slate-500'
                       }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                         {homeScore}
                       </span>
-                      <span className="text-purple-400 text-xs font-bold">—</span>
-                      <span className={`font-black text-base ${
+                      <span className="text-purple-400 text-[10px] sm:text-xs font-bold">—</span>
+                      <span className={`font-black text-sm sm:text-base ${
                         winner === 'away' ? 'text-yellow-400' : winner === 'draw' ? 'text-white' : 'text-slate-500'
                       }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                         {awayScore}
@@ -1810,13 +1810,13 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                     </div>
                     
                     {/* Away Team */}
-                    <div className="flex items-center gap-1.5 relative z-10">
-                      <span className={`text-xs font-bold uppercase tracking-wide ${
+                    <div className="flex items-center gap-1 relative z-10">
+                      <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wide truncate max-w-[60px] sm:max-w-none ${
                         winner === 'away' ? 'text-white' : 'text-slate-400'
                       }`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                         {awayPlayer.name}
                       </span>
-                      <div className={`w-2 h-2 rounded-full ${
+                      <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
                         winner === 'away' ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse' : 'bg-slate-600'
                       }`}></div>
                     </div>
@@ -2023,15 +2023,15 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                           }
                           
                           return (
-                            <div key={match.id} className="bg-gradient-to-b from-gray-100 to-gray-200 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-shadow">
-                              <div className="flex items-center justify-between">
+                            <div key={match.id} className="bg-gradient-to-b from-gray-100 to-gray-200 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-shadow">
+                              <div className="flex items-center justify-between gap-2">
                                 {/* Home Team */}
-                                <div className="flex items-center gap-3 flex-1">
-                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-bold text-xl shadow-md">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-bold text-base sm:text-xl shadow-md flex-shrink-0">
                                     {h?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <div className={`font-bold text-lg uppercase truncate ${
+                                    <div className={`font-bold text-sm sm:text-lg uppercase truncate ${
                                       winnerHighlight === 'home' ? 'text-gray-900' : 'text-gray-600'
                                     }`}>
                                       {h?.name || 'Bilinmeyen'}
@@ -2040,7 +2040,7 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                 </div>
                                 
                                 {/* Score */}
-                                <div className="flex items-center gap-3 px-6">
+                                <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-6 flex-shrink-0">
                                   {isAdmin ? (
                                     isEditMode ? (
                                       <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-xl border-2 border-purple-500 shadow-lg">
@@ -2077,57 +2077,57 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                       </div>
                                     ) : (
                                       <div 
-                                        className="flex items-center gap-3 cursor-pointer group"
+                                        className="flex items-center gap-2 sm:gap-3 cursor-pointer group"
                                         onClick={() => toggleScoreEditMode(match.id)}
                                       >
                                         {match.played ? (
                                           <>
-                                            <span className={`font-black text-3xl ${
+                                            <span className={`font-black text-xl sm:text-3xl ${
                                               winnerHighlight === 'home' ? 'text-gray-900' : 'text-gray-500'
                                             }`}>
                                               {match.homeScore}
                                             </span>
-                                            <span className="text-gray-400 font-bold text-2xl">-</span>
-                                            <span className={`font-black text-3xl ${
+                                            <span className="text-gray-400 font-bold text-lg sm:text-2xl">-</span>
+                                            <span className={`font-black text-xl sm:text-3xl ${
                                               winnerHighlight === 'away' ? 'text-gray-900' : 'text-gray-500'
                                             }`}>
                                               {match.awayScore}
                                             </span>
                                           </>
                                         ) : (
-                                          <span className="text-gray-400 font-bold text-xl">vs</span>
+                                          <span className="text-gray-400 font-bold text-base sm:text-xl">vs</span>
                                         )}
-                                        <Edit3 size={16} className="text-gray-400 group-hover:text-purple-500 transition-colors" />
+                                        <Edit3 size={14} className="text-gray-400 group-hover:text-purple-500 transition-colors sm:w-4 sm:h-4" />
                                       </div>
                                     )
                                   ) : (
                                     match.played ? (
                                       <>
-                                        <span className={`font-black text-3xl ${
+                                        <span className={`font-black text-xl sm:text-3xl ${
                                           winnerHighlight === 'home' ? 'text-gray-900' : 'text-gray-500'
                                         }`}>
                                           {match.homeScore}
                                         </span>
-                                        <span className="text-gray-400 font-bold text-2xl">-</span>
-                                        <span className={`font-black text-3xl ${
+                                        <span className="text-gray-400 font-bold text-lg sm:text-2xl">-</span>
+                                        <span className={`font-black text-xl sm:text-3xl ${
                                           winnerHighlight === 'away' ? 'text-gray-900' : 'text-gray-500'
                                         }`}>
                                           {match.awayScore}
                                         </span>
                                       </>
                                     ) : (
-                                      <span className="text-gray-400 font-bold text-xl">vs</span>
+                                      <span className="text-gray-400 font-bold text-base sm:text-xl">vs</span>
                                     )
                                   )}
                                 </div>
 
                                 {/* Away Team */}
-                                <div className="flex items-center gap-3 flex-1 flex-row-reverse">
-                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-bold text-xl shadow-md">
+                                <div className="flex items-center gap-2 flex-1 flex-row-reverse min-w-0">
+                                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-bold text-base sm:text-xl shadow-md flex-shrink-0">
                                     {a?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="min-w-0 flex-1 text-right">
-                                    <div className={`font-bold text-lg uppercase truncate ${
+                                    <div className={`font-bold text-sm sm:text-lg uppercase truncate ${
                                       winnerHighlight === 'away' ? 'text-gray-900' : 'text-gray-600'
                                     }`}>
                                       {a?.name || 'Bilinmeyen'}
