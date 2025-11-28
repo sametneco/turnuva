@@ -330,6 +330,7 @@ export default function App() {
         onDelete={() => handleDeleteClick(activeTournamentId, tournamentData?.settings?.name || 'Bu Turnuva')}
         openConfirmModal={openConfirmModal}
         updateChampionships={updateChampionships}
+        championships={championships}
       />
       <CustomConfirmModal {...confirmModal} onClose={closeConfirmModal} />
     </>
@@ -559,14 +560,13 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
 // ==========================================
 // TOURNAMENT VIEW
 // ==========================================
-function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateStatus, onRename, onDelete, openConfirmModal, updateChampionships }) {
+function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateStatus, onRename, onDelete, openConfirmModal, updateChampionships, championships }) {
   const [activeTab, setActiveTab] = useState('standings');
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [settings, setSettings] = useState({ started: false, legs: 2 });
   const [editNameMode, setEditNameMode] = useState(false);
   const [tempName, setTempName] = useState('');
-  const [championships, setChampionships] = useState({});
 
   // Skor düzenleme modu için state
   const [scoreEditMode, setScoreEditMode] = useState({});
@@ -582,19 +582,6 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
       setTempName(data.settings?.name || '');
     }
   }, [data]);
-
-  // Championships Sync for TournamentView
-  useEffect(() => {
-    const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
-    const unsub = onSnapshot(champRef, (docSnap) => {
-      if (docSnap.exists()) setChampionships(docSnap.data().players || {});
-      else setChampionships({});
-    }, (err) => { 
-        console.error("Championships hatası:", err); 
-        setChampionships({}); 
-    });
-    return () => unsub();
-  }, []);
 
   // --- Standings Logic ---
   const standings = useMemo(() => {
