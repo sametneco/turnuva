@@ -2889,7 +2889,7 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                     <h3 className="text-yellow-300 font-bold text-xs uppercase mb-3 flex items-center gap-2">
                       <Trophy size={14} /> Şampiyonluk Yönetimi
                     </h3>
-                    <p className="text-xs text-slate-400 mb-3">Her oyuncunun şampiyonluk sayısını girin</p>
+                    <p className="text-xs text-slate-400 mb-3">Her oyuncunun şampiyonluk sayısını seçin</p>
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {players.map(p => {
                         const currentChamp = championships[p.name] || 0;
@@ -2910,16 +2910,18 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                 </div>
                               </div>
                             </div>
-                            <input
-                              type="number"
-                              min="0"
+                            <select
                               value={currentChamp}
                               onChange={(e) => {
-                                const newValue = parseInt(e.target.value) || 0;
+                                const newValue = parseInt(e.target.value);
                                 updateChampionships(p.name, newValue);
                               }}
-                              className="w-16 bg-slate-950 border border-yellow-700/30 rounded p-2 text-white text-sm text-center font-bold"
-                            />
+                              className="w-20 bg-slate-950 border border-yellow-700/30 rounded p-2 text-white text-sm text-center font-bold"
+                            >
+                              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                                <option key={num} value={num}>{num}</option>
+                              ))}
+                            </select>
                           </div>
                         );
                       })}
