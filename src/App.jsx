@@ -387,16 +387,8 @@ function CustomConfirmModal({ isOpen, title, message, onConfirm, onClose }) {
 function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships }) {
   const [newName, setNewName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [showChampionshipManager, setShowChampionshipManager] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState('BURAK');
-  const [champCount, setChampCount] = useState(0);
   
   const PLAYERS = ['BURAK', 'HASAN', 'SAMET', 'ERHAN'];
-
-  // Seçili oyuncu değiştiğinde şampiyonluk sayısını güncelle
-  useEffect(() => {
-    setChampCount(championships[selectedPlayer] || 0);
-  }, [selectedPlayer, championships]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-gray-100 font-sans pb-safe">
@@ -425,99 +417,27 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
         )}
 
         {/* Şampiyonluk Tablosu */}
-        {(Object.keys(championships).length > 0 || isAdmin) && (
+        {Object.keys(championships).length > 0 && (
           <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-yellow-800/20 to-amber-900/30 border border-yellow-700/30 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Trophy size={16} className="text-yellow-400" />
-                <h3 className="text-sm font-bold text-yellow-300 uppercase">Şampiyonluklar</h3>
-              </div>
-              {isAdmin && (
-                <button 
-                  onClick={() => setShowChampionshipManager(!showChampionshipManager)}
-                  className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
-                >
-                  <Settings size={12} />
-                  Yönet
-                </button>
-              )}
+            <div className="flex items-center gap-2 mb-3">
+              <Trophy size={16} className="text-yellow-400" />
+              <h3 className="text-sm font-bold text-yellow-300 uppercase">Şampiyonluklar</h3>
             </div>
-            {Object.keys(championships).length > 0 ? (
-              <div className="space-y-2">
-                {PLAYERS.map(name => {
-                  const count = championships[name] || 0;
-                  if (count === 0 && !isAdmin) return null;
-                  return (
-                    <div key={name} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Trophy size={14} className="text-yellow-500" />
-                        <span className="text-sm font-bold text-white uppercase">{name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-black text-yellow-400">{count}</span>
-                        {isAdmin && showChampionshipManager && (
-                          <div className="flex gap-1">
-                            <button 
-                              onClick={() => updateChampionships(name, count + 1)}
-                              className="w-6 h-6 bg-emerald-600 rounded text-white text-xs flex items-center justify-center"
-                            >
-                              +
-                            </button>
-                            <button 
-                              onClick={() => count > 0 && updateChampionships(name, count - 1)}
-                              className="w-6 h-6 bg-red-600 rounded text-white text-xs flex items-center justify-center"
-                            >
-                              -
-                            </button>
-                          </div>
-                        )}
-                      </div>
+            <div className="space-y-2">
+              {PLAYERS.map(name => {
+                const count = championships[name] || 0;
+                if (count === 0) return null;
+                return (
+                  <div key={name} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Trophy size={14} className="text-yellow-500" />
+                      <span className="text-sm font-bold text-white uppercase">{name}</span>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              isAdmin && (
-                <div className="text-center py-3 text-slate-500 text-xs">
-                  Henüz şampiyonluk kaydı yok. Aşağıdan ekleyebilirsiniz.
-                </div>
-              )
-            )}
-            {isAdmin && (
-              <div className="mt-3 pt-3 border-t border-yellow-700/30">
-                <h4 className="text-xs font-bold text-yellow-300 uppercase mb-2">Şampiyonluk Güncelle</h4>
-                <div className="space-y-2">
-                  <div className="flex gap-2 items-center">
-                    <select
-                      value={selectedPlayer}
-                      onChange={(e) => setSelectedPlayer(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-sm uppercase font-bold"
-                    >
-                      {PLAYERS.map(player => (
-                        <option key={player} value={player}>{player}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Sayı"
-                      value={champCount}
-                      onChange={(e) => setChampCount(parseInt(e.target.value) || 0)}
-                      className="w-20 bg-slate-950 border border-slate-700 rounded p-2 text-white text-sm text-center font-bold"
-                    />
-                    <button
-                      onClick={() => updateChampionships(selectedPlayer, champCount)}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-xs font-bold"
-                    >
-                      Güncelle
-                    </button>
+                    <span className="text-lg font-black text-yellow-400">{count}</span>
                   </div>
-                  <p className="text-[10px] text-slate-500 text-center">
-                    Sayıyı gir ve Güncelle'ye bas
-                  </p>
-                </div>
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -2961,6 +2881,51 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                       <button onClick={handleResetFixtures} className="w-full border border-red-900 text-red-500 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-900/10">
                         <RefreshCw size={16} /> Fikstürü Sıfırla (Başa Dön)
                       </button>
+                    )}
+                </div>
+
+                {/* Şampiyonluk Yönetimi */}
+                <div className="bg-gradient-to-br from-yellow-900/30 via-yellow-800/20 to-amber-900/30 border border-yellow-700/30 rounded-xl p-4">
+                    <h3 className="text-yellow-300 font-bold text-xs uppercase mb-3 flex items-center gap-2">
+                      <Trophy size={14} /> Şampiyonluk Yönetimi
+                    </h3>
+                    <p className="text-xs text-slate-400 mb-3">Her oyuncunun şampiyonluk sayısını girin</p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {players.map(p => {
+                        const currentChamp = championships[p.name] || 0;
+                        return (
+                          <div key={p.id} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg border border-yellow-700/20">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-slate-900 border border-yellow-700/30 flex items-center justify-center text-xs text-white">{p.name[0]}</div>
+                              <div>
+                                <div className="text-white font-medium text-sm uppercase">{p.name}</div>
+                                <div className="text-yellow-500 text-[10px] flex items-center gap-1">
+                                  {currentChamp > 0 && (
+                                    <>
+                                      <Trophy size={8} />
+                                      <span>{currentChamp} Şampiyonluk</span>
+                                    </>
+                                  )}
+                                  {currentChamp === 0 && <span className="text-slate-500">Şampiyonluk yok</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              value={currentChamp}
+                              onChange={(e) => {
+                                const newValue = parseInt(e.target.value) || 0;
+                                updateChampionships(p.name, newValue);
+                              }}
+                              className="w-16 bg-slate-950 border border-yellow-700/30 rounded p-2 text-white text-sm text-center font-bold"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {players.length === 0 && (
+                      <p className="text-slate-500 text-xs text-center py-4">Önce katılımcı ekleyin</p>
                     )}
                 </div>
               </>
