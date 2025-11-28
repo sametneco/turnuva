@@ -479,31 +479,34 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
             )}
             {isAdmin && (
               <div className="mt-3 pt-3 border-t border-yellow-700/30">
+                <h4 className="text-xs font-bold text-yellow-300 uppercase mb-2">Şampiyonluk Güncelle</h4>
                 <div className="space-y-2">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <select
                       value={selectedPlayer}
                       onChange={(e) => setSelectedPlayer(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs uppercase font-bold"
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-white text-sm uppercase font-bold"
                     >
                       {PLAYERS.map(player => (
                         <option key={player} value={player}>{player}</option>
                       ))}
                     </select>
-                    <button 
-                      onClick={() => {
-                        const currentCount = championships[selectedPlayer] || 0;
-                        updateChampionships(selectedPlayer, currentCount + 1);
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Sayı"
+                      value={championships[selectedPlayer] || 0}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value) || 0;
+                        updateChampionships(selectedPlayer, newValue);
                       }}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 rounded text-xs font-bold flex items-center gap-1"
-                    >
-                      <Trophy size={12} />
-                      Şampiyonluk Ekle
-                    </button>
+                      className="w-20 bg-slate-950 border border-slate-700 rounded p-2 text-white text-sm text-center font-bold"
+                    />
+                    <Trophy size={16} className="text-yellow-400" />
                   </div>
-                  <div className="text-center text-xs text-slate-400">
-                    <span className="font-bold text-yellow-400">{selectedPlayer}</span> - Toplam: <span className="font-bold text-yellow-400">{championships[selectedPlayer] || 0}</span> Şampiyonluk
-                  </div>
+                  <p className="text-[10px] text-slate-500 text-center">
+                    Sayıyı değiştirin, otomatik kaydedilir
+                  </p>
                 </div>
               </div>
             )}
