@@ -2894,12 +2894,12 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                       {players.map(p => {
                         const currentChamp = championships[p.name] || 0;
                         return (
-                          <div key={p.id} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg border border-yellow-700/20">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-slate-900 border border-yellow-700/30 flex items-center justify-center text-xs text-white">{p.name[0]}</div>
+                          <div key={p.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-yellow-700/20">
+                            <div className="flex items-center gap-2 flex-1">
+                              <div className="w-8 h-8 rounded-full bg-slate-900 border border-yellow-700/30 flex items-center justify-center font-bold text-yellow-400">{p.name[0]}</div>
                               <div>
-                                <div className="text-white font-medium text-sm uppercase">{p.name}</div>
-                                <div className="text-yellow-500 text-[10px] flex items-center gap-1">
+                                <div className="text-white font-bold text-sm uppercase">{p.name}</div>
+                                <div className="text-yellow-400 text-[10px] flex items-center gap-1 font-medium">
                                   {currentChamp > 0 && (
                                     <>
                                       <Trophy size={8} />
@@ -2914,12 +2914,13 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                               value={currentChamp}
                               onChange={(e) => {
                                 const newValue = parseInt(e.target.value);
+                                console.log('Dropdown değişti:', { player: p.name, newValue, isAdmin });
                                 updateChampionships(p.name, newValue);
                               }}
-                              className="w-20 bg-slate-950 border border-yellow-700/30 rounded p-2 text-white text-sm text-center font-bold"
+                              className="w-16 bg-slate-950 border-2 border-yellow-600/50 rounded-lg px-2 py-2 text-white text-sm font-bold focus:border-yellow-500 focus:outline-none cursor-pointer"
                             >
                               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                                <option key={num} value={num}>{num}</option>
+                                <option key={num} value={num} className="bg-slate-900 text-white font-bold">{num}</option>
                               ))}
                             </select>
                           </div>
