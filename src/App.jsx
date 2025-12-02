@@ -491,6 +491,91 @@ function CustomConfirmModal({ isOpen, title, message, onConfirm, onClose }) {
 }
 
 
+// Turnuva Kartı Bileşeni
+function TournamentCard({ tournament, onSelect, isAdmin, handleDeleteClick, db, appId }) {
+  const [tournamentStatus, setTournamentStatus] = useState(null);
+  
+  useEffect(() => {
+    if (tournament.mode === 'team') {
+      const fetchTournamentData = async () => {
+        try {
+          const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', `t_${tournament.id}`);
+          const tournamentSnap = await getDoc(tournamentRef);
+          if (tournamentSnap.exists()) {
+            const data = tournamentSnap.data();
+            const matches = data.matches || [];
+            const settings = data.settings || {};
+            
+            // Seri istatistiklerini hesapla
+            let teamAWins = 0;
+            let teamBWins = 0;
+            matches.forEach(match => {
+              if (match.played) {
+                const hScore = parseInt(match.homeScore);
+                const aScore = parseInt(match.awayScore);
+                if (!isNaN(hScore) && !isNaN(aScore)) {
+                  if (hScore > aScore) teamAWins++;
+                  else if (aScore > hScore) teamBWins++;
+                }
+              }
+            });
+            
+            const targetWins = settings.teamConfig?.extended ? 6 : 5;
+            const seriesWon = teamAWins >= targetWins || teamBWins >= targetWins;
+            
+            if (seriesWon) {
+              const winnerTeam = teamAWins >= targetWins ? settings.teamConfig?.teamA?.name : settings.teamConfig?.teamB?.name;
+              setTournamentStatus({ completed: true, winner: winnerTeam });
+            } else {
+              setTournamentStatus({ completed: false });
+            }
+          }
+        } catch (e) {
+          console.error('Turnuva durumu çekme hatası:', e);
+        }
+      };
+      fetchTournamentData();
+    }
+  }, [tournament.id, tournament.mode, db, appId]);
+  
+  return (
+    <div className="group relative bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition-all">
+      <div className="flex justify-between items-start">
+        <div className="flex-1 min-w-0 pr-12 cursor-pointer" onClick={() => onSelect(tournament.id)}>
+          <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors truncate">{tournament.name}</h3>
+          <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+            <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(tournament.createdAt)}</span>
+            {tournament.mode === 'team' && tournamentStatus?.completed ? (
+              <span className="px-2 py-0.5 rounded-full font-bold bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 text-yellow-400 border border-yellow-500/30 flex items-center gap-1">
+                <Trophy size={10} /> Tamamlandı
+              </span>
+            ) : (
+              <span className={`px-1.5 py-0.5 rounded font-medium ${tournament.status === 'Tamamlandı' ? 'bg-slate-800 text-slate-500' : 'bg-emerald-900/30 text-emerald-400'}`}>{tournament.status}</span>
+            )}
+          </div>
+          {tournament.mode === 'team' && tournamentStatus?.completed && tournamentStatus?.winner && (
+            <div className="mt-2 text-[10px] text-yellow-300 font-semibold">
+              🏆 {tournamentStatus.winner} Kazandı!
+            </div>
+          )}
+        </div>
+        {isAdmin && (
+          <button 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              handleDeleteClick(tournament.id, tournament.name); 
+            }} 
+            className="absolute top-4 right-4 p-2 opacity-0 group-hover:opacity-100 rounded-lg text-red-400 hover:bg-red-900/20 transition-all"
+            title="Turnuvayı Sil"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ==========================================
 // LOBBY VIEW
 // ==========================================
@@ -676,24 +761,26 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
           const maxCount = teamChampionships.length > 0 ? teamChampionships[0][1] : 0;
           
           return (
-            <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-amber-900/20 to-yellow-800/30 border-2 border-yellow-600/40 rounded-2xl p-5 shadow-2xl shadow-yellow-900/20">
-              <div className="flex items-center gap-2 mb-4">
-                <Trophy size={18} className="text-yellow-400 animate-pulse" />
-                <h3 className="text-base font-black text-yellow-300 uppercase tracking-wide">Genel Seri Durumu</h3>
+            <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-amber-900/20 to-yellow-800/30 border-2 border-yellow-600/40 rounded-lg p-3 shadow-lg shadow-yellow-900/20">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Trophy size={14} className="text-yellow-400 animate-pulse" />
+                <h3 className="text-xs font-bold text-yellow-300 uppercase tracking-wide">Genel Seri Durumu</h3>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 {teamChampionships.map(([teamName, count], index) => {
                   // "SAMET & BURAK" -> "SAMET | BURAK"
                   const displayName = teamName.replace(' & ', ' | ');
-                  const isLeader = count === maxCount && count > 0;
+                  // Lider: En yüksek skora sahip VE tek başına olmalı (berabere değil)
+                  const hasUniqueLeader = teamChampionships.length >= 2 && teamChampionships[0][1] > teamChampionships[1][1];
+                  const isLeader = count === maxCount && count > 0 && index === 0 && hasUniqueLeader;
                   const isSecond = index === 1 && count > 0;
                   
                   return (
                     <div 
                       key={teamName} 
-                      className={`relative overflow-hidden rounded-xl p-4 border-2 transition-all ${
+                      className={`relative overflow-hidden rounded-md p-2 border transition-all ${
                         isLeader 
-                          ? 'bg-gradient-to-r from-yellow-600/20 via-yellow-500/10 to-yellow-600/20 border-yellow-500/60 shadow-lg shadow-yellow-500/20'
+                          ? 'bg-gradient-to-r from-yellow-600/20 via-yellow-500/10 to-yellow-600/20 border-yellow-500/60 shadow-md shadow-yellow-500/20'
                           : isSecond
                           ? 'bg-gradient-to-r from-slate-800/40 via-slate-700/20 to-slate-800/40 border-slate-600/40'
                           : 'bg-gradient-to-r from-slate-800/30 via-slate-700/10 to-slate-800/30 border-slate-700/30'
@@ -705,27 +792,27 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                       )}
                       
                       <div className="relative flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
                           {/* Trophy Icon */}
-                          <div className={`p-2 rounded-lg ${
+                          <div className={`p-1 rounded ${
                             isLeader 
-                              ? 'bg-yellow-500/30 ring-2 ring-yellow-400/50' 
+                              ? 'bg-yellow-500/30 ring-1 ring-yellow-400/50' 
                               : 'bg-slate-700/50'
                           }`}>
-                            <Trophy size={16} className={isLeader ? 'text-yellow-400' : 'text-slate-400'} />
+                            <Trophy size={12} className={isLeader ? 'text-yellow-400' : 'text-slate-400'} />
                           </div>
                           
                           {/* Team Name */}
                           <div>
-                            <div className={`font-black uppercase tracking-wide ${
+                            <div className={`font-bold uppercase tracking-wide leading-tight ${
                               isLeader 
-                                ? 'text-yellow-300 text-base' 
-                                : 'text-slate-300 text-sm'
+                                ? 'text-yellow-300 text-xs' 
+                                : 'text-slate-300 text-[10px]'
                             }`}>
                               {displayName}
                             </div>
                             {isLeader && (
-                              <div className="text-[10px] text-yellow-500/80 font-semibold uppercase tracking-wider">Lider</div>
+                              <div className="text-[8px] text-yellow-500/80 font-semibold uppercase tracking-wider">Lider</div>
                             )}
                           </div>
                         </div>
@@ -735,16 +822,16 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           <select
                             value={count}
                             onChange={(e) => updateChampionships(teamName, parseInt(e.target.value))}
-                            className="px-3 py-2 rounded-lg font-black text-lg bg-slate-900 border-2 border-yellow-600/50 text-yellow-300 focus:border-yellow-500 outline-none cursor-pointer"
+                            className="px-2 py-1 rounded font-bold text-sm bg-slate-900 border border-yellow-600/50 text-yellow-300 focus:border-yellow-500 outline-none cursor-pointer"
                           >
                             {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
                               <option key={num} value={num} className="bg-slate-900 text-white font-bold">{num}</option>
                             ))}
                           </select>
                         ) : (
-                          <div className={`px-4 py-2 rounded-lg font-black text-xl ${
+                          <div className={`px-2 py-1 rounded font-bold text-base ${
                             isLeader 
-                              ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
+                              ? 'bg-yellow-500/30 text-yellow-300 ring-1 ring-yellow-400/50 shadow-md shadow-yellow-500/20' 
                               : 'bg-slate-700/50 text-slate-300'
                           }`}>
                             {count}
@@ -945,31 +1032,23 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
         )}
 
         <div className="space-y-3">
-          {loading ? <div className="text-center text-slate-500 py-10">Yükleniyor...</div> : registry.length === 0 ? <div className="text-center text-slate-500 py-10 bg-slate-900/30 rounded-xl">Kayıtlı turnuva yok.</div> : registry.map((t) => (
-            <div key={t.id} className="group relative bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition-all" >
-               <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0 pr-12 cursor-pointer" onClick={() => onSelect(t.id)}>
-                    <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors truncate">{t.name}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
-                      <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(t.createdAt)}</span>
-                      <span className={`px-1.5 py-0.5 rounded font-medium ${t.status === 'Tamamlandı' ? 'bg-slate-800 text-slate-500' : 'bg-emerald-900/30 text-emerald-400'}`}>{t.status}</span>
-                    </div>
-                  </div>
-                  {isAdmin && (
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleDeleteClick(t.id, t.name); 
-                      }} 
-                      className="p-2 bg-slate-950 rounded-full text-slate-600 hover:text-red-500 hover:bg-red-900/20 z-10 transition-all absolute top-4 right-4"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                  {!isAdmin && <div className="bg-slate-950 p-2 rounded-full text-slate-500 group-hover:text-white transition-colors cursor-pointer" onClick={() => onSelect(t.id)}><PlayCircle size={20} /></div>}
-               </div>
-            </div>
-          ))}
+          {loading ? (
+            <div className="text-center text-slate-500 py-10">Yükleniyor...</div>
+          ) : registry.length === 0 ? (
+            <div className="text-center text-slate-500 py-10 bg-slate-900/30 rounded-xl">Kayıtlı turnuva yok.</div>
+          ) : (
+            registry.map((t) => (
+              <TournamentCard 
+                key={t.id}
+                tournament={t}
+                onSelect={onSelect}
+                isAdmin={isAdmin}
+                handleDeleteClick={handleDeleteClick}
+                db={db}
+                appId={appId}
+              />
+            ))
+          )}
         </div>
       </div>
       <style>{`.pb-safe { padding-bottom: env(safe-area-inset-bottom); }`}</style>
@@ -3716,12 +3795,12 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
             
             {/* Takımlar ve Skorlar */}
             <div className="flex items-end justify-center gap-3 mb-6 px-2">
-              {/* TAKIM A */}
+              {/* TAKIM A - Mavi */}
               <div className="flex flex-col items-center animate-slideInLeft">
-                <div className="bg-slate-800/50 border border-slate-700 rounded-full px-2.5 py-1 mb-2">
-                  <h3 className="text-[11px] font-black text-white uppercase text-center flex items-center gap-1 whitespace-nowrap">
+                <div className="bg-blue-500/20 border-2 border-blue-500/40 rounded-lg px-3 py-1.5 mb-2">
+                  <h3 className="text-[11px] font-black text-blue-300 uppercase text-center flex items-center gap-1 whitespace-nowrap">
                     <span>{teamA.players[0]}</span>
-                    <span className="text-slate-500 font-light">|</span>
+                    <span className="text-blue-500/60 font-light">|</span>
                     <span>{teamA.players[1]}</span>
                   </h3>
                 </div>
@@ -3752,12 +3831,12 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
               {/* AYIRICI */}
               <div className="text-xl font-black text-purple-400 animate-pulse pb-12">-</div>
               
-              {/* TAKIM B */}
+              {/* TAKIM B - Kırmızı */}
               <div className="flex flex-col items-center animate-slideInRight">
-                <div className="bg-slate-800/50 border border-slate-700 rounded-full px-2.5 py-1 mb-2">
-                  <h3 className="text-[11px] font-black text-white uppercase text-center flex items-center gap-1 whitespace-nowrap">
+                <div className="bg-red-500/20 border-2 border-red-500/40 rounded-lg px-3 py-1.5 mb-2">
+                  <h3 className="text-[11px] font-black text-red-300 uppercase text-center flex items-center gap-1 whitespace-nowrap">
                     <span>{teamB.players[0]}</span>
-                    <span className="text-slate-500 font-light">|</span>
+                    <span className="text-red-500/60 font-light">|</span>
                     <span>{teamB.players[1]}</span>
                   </h3>
                 </div>
@@ -3781,6 +3860,106 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                         style={{ animationDelay: `${i * 100 + 50}ms` }}
                       />
                     ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* İstatistikler - Oyun Tarzı */}
+            <div className="mt-4 px-4">
+              {/* Takım İstatistikleri */}
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                {/* Takım A İstatistikleri */}
+                <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-500/30 rounded-lg p-2">
+                  <div className="text-center">
+                    <div className="text-[9px] text-blue-300 uppercase tracking-wide mb-1 font-bold">Ort. Gol</div>
+                    <div className="text-xl font-black text-blue-400">{(() => {
+                      const playedMatches = matches.filter(m => m.played);
+                      if (playedMatches.length === 0) return '0.0';
+                      const totalGoals = playedMatches.reduce((sum, m) => sum + parseInt(m.homeScore || 0), 0);
+                      return (totalGoals / playedMatches.length).toFixed(1);
+                    })()}</div>
+                  </div>
+                </div>
+                
+                {/* Beraberlik - Ortada */}
+                <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-500/30 rounded-lg p-2">
+                  <div className="text-center">
+                    <div className="text-[9px] text-yellow-300 uppercase tracking-wide mb-1 font-bold flex items-center justify-center gap-1">
+                      <span>⚖️</span>
+                      <span>Berabere</span>
+                    </div>
+                    <div className="text-xl font-black text-yellow-400">{(() => {
+                      let draws = 0;
+                      matches.forEach(m => {
+                        if (m.played && parseInt(m.homeScore) === parseInt(m.awayScore)) draws++;
+                      });
+                      return draws;
+                    })()}</div>
+                  </div>
+                </div>
+                
+                {/* Takım B İstatistikleri */}
+                <div className="bg-gradient-to-br from-red-900/40 to-red-800/20 border border-red-500/30 rounded-lg p-2">
+                  <div className="text-center">
+                    <div className="text-[9px] text-red-300 uppercase tracking-wide mb-1 font-bold">Ort. Gol</div>
+                    <div className="text-xl font-black text-red-400">{(() => {
+                      const playedMatches = matches.filter(m => m.played);
+                      if (playedMatches.length === 0) return '0.0';
+                      const totalGoals = playedMatches.reduce((sum, m) => sum + parseInt(m.awayScore || 0), 0);
+                      return (totalGoals / playedMatches.length).toFixed(1);
+                    })()}</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Toplam Maç Progress Bar - Mortal Kombat Tarzı */}
+              <div className="bg-slate-900/80 border border-slate-700 rounded-lg p-3">
+                <div className="text-center mb-2">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">⚔️ Toplam Maç Skoru</div>
+                </div>
+                
+                {/* Progress Bar Container */}
+                <div className="relative h-8 bg-slate-950 rounded-lg overflow-hidden border-2 border-slate-700">
+                  {/* Takım A Bar (Mavi - Soldan) */}
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 transition-all duration-500 ease-out"
+                    style={{ 
+                      width: `${(() => {
+                        const totalMatches = matches.filter(m => m.played).length;
+                        if (totalMatches === 0) return 0;
+                        return ((teamSeriesStats?.teamAWins || 0) / totalMatches) * 100;
+                      })()}%` 
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                  </div>
+                  
+                  {/* Takım B Bar (Kırmızı - Sağdan) */}
+                  <div 
+                    className="absolute right-0 top-0 h-full bg-gradient-to-l from-red-600 via-red-500 to-red-600 transition-all duration-500 ease-out"
+                    style={{ 
+                      width: `${(() => {
+                        const totalMatches = matches.filter(m => m.played).length;
+                        if (totalMatches === 0) return 0;
+                        return ((teamSeriesStats?.teamBWins || 0) / totalMatches) * 100;
+                      })()}%` 
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                  </div>
+                  
+                  {/* Skor Göstergeleri */}
+                  <div className="absolute inset-0 flex items-center justify-between px-3 z-20">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
+                      <span className="text-sm font-black text-white drop-shadow-lg">{teamSeriesStats?.teamAWins || 0}</span>
+                    </div>
+                    <div className="text-xs font-bold text-slate-300 bg-slate-900/90 px-2 py-0.5 rounded">{matches.filter(m => m.played).length} MAÇ</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-black text-white drop-shadow-lg">{teamSeriesStats?.teamBWins || 0}</span>
+                      <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3868,15 +4047,31 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                 return (
                   <div 
                     key={match.id}
-                    className={`bg-slate-800/50 border rounded-xl p-4 ${
+                    className={`bg-slate-800/50 border rounded-xl overflow-hidden ${
                       match.played 
                         ? 'border-slate-700' 
                         : 'border-yellow-500/30 bg-yellow-900/10'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      {/* Maç Numarası */}
-                      <div className="text-xs text-slate-500 font-bold">MAÇ #{match.round}</div>
+                    {/* Maç Başlığı */}
+                    <div className="bg-slate-900/80 px-4 py-2 border-b border-slate-700/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                          <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Maç #{match.round}</span>
+                        </div>
+                        {!match.played && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1 h-1 rounded-full bg-yellow-400 animate-pulse"></div>
+                            <span className="text-[10px] text-yellow-400 font-semibold">Bekliyor</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Maç İçeriği */}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between">
                       
                       {/* Skor veya Giriş */}
                       <div className="flex-1 flex items-center justify-center gap-4">
@@ -3934,8 +4129,11 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                           </div>
                         ) : (
                           <div className="flex items-center gap-4">
+                            {/* Takım A - Sol (Mavi) */}
                             <div className={`text-center ${ homeWon ? 'scale-105' : '' } transition-transform`}>
-                              <div className="text-[10px] text-slate-500 mb-0.5 font-medium">{teamA.name}</div>
+                              <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 mb-1.5">
+                                <div className="text-[10px] text-blue-300 font-bold uppercase tracking-wide">{teamA.name}</div>
+                              </div>
                               <div className={`text-2xl font-bold rounded-lg px-3 py-1 ${
                                 homeWon ? 'text-emerald-400 bg-emerald-500/10' : awayWon ? 'text-slate-600' : 'text-white bg-slate-700/30'
                               }`}>
@@ -3945,8 +4143,11 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                             
                             <div className="text-lg font-bold text-slate-600">vs</div>
                             
+                            {/* Takım B - Sağ (Kırmızı) */}
                             <div className={`text-center ${ awayWon ? 'scale-105' : '' } transition-transform`}>
-                              <div className="text-[10px] text-slate-500 mb-0.5 font-medium">{teamB.name}</div>
+                              <div className="px-3 py-1 rounded-lg bg-red-500/20 border border-red-500/30 mb-1.5">
+                                <div className="text-[10px] text-red-300 font-bold uppercase tracking-wide">{teamB.name}</div>
+                              </div>
                               <div className={`text-2xl font-bold rounded-lg px-3 py-1 ${
                                 awayWon ? 'text-emerald-400 bg-emerald-500/10' : homeWon ? 'text-slate-600' : 'text-white bg-slate-700/30'
                               }`}>
@@ -3999,6 +4200,7 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                         )}
                       </div>
                     )}
+                    </div>
                   </div>
                 );
               })
