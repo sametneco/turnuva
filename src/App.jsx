@@ -186,16 +186,22 @@ export default function App() {
   }, [user, activeTournamentId]);
 
   // --- Actions ---
-  const createTournament = async (name) => {
+  const createTournament = async (name, mode = 'individual', teamConfig = null) => {
     if (!isAdmin) {
       console.error("Create tournament failed: User is not admin");
       return;
     }
     
     try {
-        console.log("Creating tournament with name:", name);
+        console.log("Creating tournament with name:", name, "mode:", mode);
         const newId = generateId();
-        const newMeta = { id: newId, name: name || 'Yeni Turnuva', createdAt: new Date().toISOString(), status: 'Hazırlık' };
+        const newMeta = { 
+          id: newId, 
+          name: name || 'Yeni Turnuva', 
+          createdAt: new Date().toISOString(), 
+          status: 'Hazırlık',
+          mode: mode // 'individual' or 'team'
+        };
         const newRegistry = [newMeta, ...registry];
         
         console.log("New registry data:", newRegistry);
@@ -210,15 +216,30 @@ export default function App() {
         
         // Turnuva dokümanı oluşturma
         const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', `t_${newId}`);
-        await setDoc(tournamentRef, {
-          players: [], matches: [], settings: { started: false, name: name }
-        }).catch(error => {
+        const tournamentDoc = {
+          players: [], 
+          matches: [], 
+          settings: { 
+            started: false, 
+            name: name,
+            mode: mode,
+            teamConfig: teamConfig // Takım modu için: { teamA: {name, players: []}, teamB: {name, players: []} }
+          }
+        };
+        
+        await setDoc(tournamentRef, tournamentDoc).catch(error => {
           console.error("Tournament creation error:", error);
           console.error("Tournament ref path:", tournamentRef.path);
           throw error;
         });
         
-        console.log(`Tournament ${name} created successfully.`);
+        console.log(`Tournament ${name} created successfully with mode: ${mode}`);
+        
+        // Takım modunda oluşturulduysa direkt turnuvaya git
+        if (mode === 'team') {
+          setActiveTournamentId(newId);
+          setView('tournament');
+        }
     } catch (e) {
         console.error("Error creating tournament:", e);
         alert("Turnuva oluşturulurken bir hata oluştu. Lütfen konsolu kontrol edin.");
@@ -401,8 +422,61 @@ function CustomConfirmModal({ isOpen, title, message, onConfirm, onClose }) {
 function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships }) {
   const [newName, setNewName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [createStep, setCreateStep] = useState(1); // 1: Ad, 2: Mod Seçimi, 3: Takım Kurulumu
+  const [selectedMode, setSelectedMode] = useState('individual');
+  
+  // Takım modu için state
+  const [teamAPlayer1, setTeamAPlayer1] = useState('');
+  const [teamAPlayer2, setTeamAPlayer2] = useState('');
+  const [teamBPlayer1, setTeamBPlayer1] = useState('');
+  const [teamBPlayer2, setTeamBPlayer2] = useState('');
   
   const PLAYERS = ['BURAK', 'HASAN', 'SAMET', 'ERHAN'];
+  
+  const resetCreateForm = () => {
+    setShowCreate(false);
+    setCreateStep(1);
+    setNewName('');
+    setSelectedMode('individual');
+    setTeamAPlayer1('');
+    setTeamAPlayer2('');
+    setTeamBPlayer1('');
+    setTeamBPlayer2('');
+  };
+  
+  const handleCreateSubmit = () => {
+    if (selectedMode === 'individual') {
+      createTournament(newName, 'individual', null);
+      resetCreateForm();
+    } else {
+      // Takım modu - validasyon
+      if (!teamAPlayer1 || !teamAPlayer2 || !teamBPlayer1 || !teamBPlayer2) {
+        alert('Lütfen tüm oyuncuları seçin!');
+        return;
+      }
+      if (teamAPlayer1 === teamAPlayer2 || teamBPlayer1 === teamBPlayer2 ||
+          teamAPlayer1 === teamBPlayer1 || teamAPlayer1 === teamBPlayer2 ||
+          teamAPlayer2 === teamBPlayer1 || teamAPlayer2 === teamBPlayer2) {
+        alert('Aynı oyuncu birden fazla kez seçilemez!');
+        return;
+      }
+      
+      const teamConfig = {
+        teamA: {
+          name: `${teamAPlayer1} & ${teamAPlayer2}`,
+          players: [teamAPlayer1, teamAPlayer2]
+        },
+        teamB: {
+          name: `${teamBPlayer1} & ${teamBPlayer2}`,
+          players: [teamBPlayer1, teamBPlayer2]
+        },
+        extended: false // Başlangıçta uzatılmamış
+      };
+      
+      createTournament(newName, 'team', teamConfig);
+      resetCreateForm();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-gray-100 font-sans pb-safe">
@@ -462,13 +536,179 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                 <Plus size={20} /> Yeni Turnuva Oluştur
               </button>
             ) : (
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 animate-in fade-in zoom-in-95">
-                <h3 className="text-sm font-bold text-white mb-3">Turnuva Adı</h3>
-                <input type="text" placeholder="Örn: OFİS LİGİ" value={newName} onChange={(e) => setNewName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white mb-3 focus:border-emerald-500 outline-none font-bold" />
-                <div className="flex gap-2">
-                  <button onClick={() => setShowCreate(false)} className="flex-1 bg-slate-800 text-slate-300 py-2 rounded-lg text-sm">İptal</button>
-                  <button onClick={() => { createTournament(newName); setNewName(''); setShowCreate(false); }} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm">Oluştur</button>
-                </div>
+              <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 animate-in fade-in zoom-in-95">
+                {/* Step 1: Turnuva Adı */}
+                {createStep === 1 && (
+                  <>
+                    <h3 className="text-sm font-bold text-white mb-3">Turnuva Adı</h3>
+                    <input 
+                      type="text" 
+                      placeholder="Örn: OFİS LİGİ" 
+                      value={newName} 
+                      onChange={(e) => setNewName(e.target.value.toUpperCase())} 
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white mb-3 focus:border-emerald-500 outline-none font-bold" 
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={resetCreateForm} className="flex-1 bg-slate-800 text-slate-300 py-2 rounded-lg text-sm">İptal</button>
+                      <button 
+                        onClick={() => {
+                          if (!newName.trim()) {
+                            alert('Lütfen turnuva adı girin!');
+                            return;
+                          }
+                          setCreateStep(2);
+                        }} 
+                        className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm"
+                      >
+                        İleri →
+                      </button>
+                    </div>
+                  </>
+                )}
+                
+                {/* Step 2: Mod Seçimi */}
+                {createStep === 2 && (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-white">Turnuva Modu</h3>
+                      <button onClick={() => setCreateStep(1)} className="text-xs text-slate-400 hover:text-white">← Geri</button>
+                    </div>
+                    
+                    <div className="space-y-3 mb-4">
+                      <button
+                        onClick={() => setSelectedMode('individual')}
+                        className={`w-full p-4 rounded-lg border-2 transition-all ${
+                          selectedMode === 'individual'
+                            ? 'border-emerald-500 bg-emerald-500/10'
+                            : 'border-slate-700 bg-slate-950 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${
+                            selectedMode === 'individual' ? 'bg-emerald-500/20' : 'bg-slate-800'
+                          }`}>
+                            <Users size={20} className={selectedMode === 'individual' ? 'text-emerald-400' : 'text-slate-400'} />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-bold text-white text-sm">Bireysel Mod</div>
+                            <div className="text-xs text-slate-400">1v1 Maçlar</div>
+                          </div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => setSelectedMode('team')}
+                        className={`w-full p-4 rounded-lg border-2 transition-all ${
+                          selectedMode === 'team'
+                            ? 'border-purple-500 bg-purple-500/10'
+                            : 'border-slate-700 bg-slate-950 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${
+                            selectedMode === 'team' ? 'bg-purple-500/20' : 'bg-slate-800'
+                          }`}>
+                            <Users size={20} className={selectedMode === 'team' ? 'text-purple-400' : 'text-slate-400'} />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-bold text-white text-sm">Takım Modu</div>
+                            <div className="text-xs text-slate-400">2v2 Takım Savaşları (First to 5)</div>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button onClick={resetCreateForm} className="flex-1 bg-slate-800 text-slate-300 py-2 rounded-lg text-sm">İptal</button>
+                      <button 
+                        onClick={() => {
+                          if (selectedMode === 'individual') {
+                            handleCreateSubmit();
+                          } else {
+                            setCreateStep(3);
+                          }
+                        }} 
+                        className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm"
+                      >
+                        {selectedMode === 'individual' ? 'Oluştur' : 'İleri →'}
+                      </button>
+                    </div>
+                  </>
+                )}
+                
+                {/* Step 3: Takım Kurulumu */}
+                {createStep === 3 && selectedMode === 'team' && (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-white">Takımları Kur</h3>
+                      <button onClick={() => setCreateStep(2)} className="text-xs text-slate-400 hover:text-white">← Geri</button>
+                    </div>
+                    
+                    {/* Takım A */}
+                    <div className="mb-4 p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-700/30 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Trophy size={14} className="text-blue-400" />
+                        <h4 className="text-xs font-bold text-blue-300 uppercase">Takım A</h4>
+                      </div>
+                      <div className="space-y-2">
+                        <select 
+                          value={teamAPlayer1} 
+                          onChange={(e) => setTeamAPlayer1(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-blue-500 outline-none"
+                        >
+                          <option value="">Oyuncu 1 Seç</option>
+                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <select 
+                          value={teamAPlayer2} 
+                          onChange={(e) => setTeamAPlayer2(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-blue-500 outline-none"
+                        >
+                          <option value="">Oyuncu 2 Seç</option>
+                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="text-center text-slate-500 text-xs mb-4 font-bold">VS</div>
+                    
+                    {/* Takım B */}
+                    <div className="mb-4 p-4 bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-700/30 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Trophy size={14} className="text-red-400" />
+                        <h4 className="text-xs font-bold text-red-300 uppercase">Takım B</h4>
+                      </div>
+                      <div className="space-y-2">
+                        <select 
+                          value={teamBPlayer1} 
+                          onChange={(e) => setTeamBPlayer1(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-red-500 outline-none"
+                        >
+                          <option value="">Oyuncu 1 Seç</option>
+                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <select 
+                          value={teamBPlayer2} 
+                          onChange={(e) => setTeamBPlayer2(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-red-500 outline-none"
+                        >
+                          <option value="">Oyuncu 2 Seç</option>
+                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button onClick={resetCreateForm} className="flex-1 bg-slate-800 text-slate-300 py-2 rounded-lg text-sm">İptal</button>
+                      <button 
+                        onClick={handleCreateSubmit} 
+                        className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-bold"
+                      >
+                        Turnuvayı Başlat 🔥
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -532,6 +772,43 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
       setTempName(data.settings?.name || '');
     }
   }, [data]);
+  
+  // --- Takım Modu: Seri Hesaplama ---
+  const teamSeriesStats = useMemo(() => {
+    if (settings.mode !== 'team' || !settings.teamConfig) return null;
+    
+    let teamAWins = 0;
+    let teamBWins = 0;
+    
+    matches.forEach(match => {
+      if (match.played) {
+        const hScore = parseInt(match.homeScore);
+        const aScore = parseInt(match.awayScore);
+        if (!isNaN(hScore) && !isNaN(aScore)) {
+          if (hScore > aScore) {
+            teamAWins++; // Takım A kazandı
+          } else if (aScore > hScore) {
+            teamBWins++; // Takım B kazandı
+          }
+          // Beraberlik saya durmuyor, seri devam ediyor
+        }
+      }
+    });
+    
+    const targetWins = settings.teamConfig?.extended ? 6 : 5; // Uzatılmışsa 6, değilse 5
+    const seriesWon = teamAWins >= targetWins || teamBWins >= targetWins;
+    const winner = teamAWins >= targetWins ? 'teamA' : (teamBWins >= targetWins ? 'teamB' : null);
+    
+    return {
+      teamAWins,
+      teamBWins,
+      seriesWon,
+      winner,
+      targetWins,
+      totalGames: targetWins,
+      extended: settings.teamConfig?.extended || false
+    };
+  }, [matches, settings]);
 
   // --- Standings Logic ---
   const standings = useMemo(() => {
@@ -1811,10 +2088,25 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-        <p className="text-gray-600 font-medium">Yükleniyor...</p>
+        <p className="text-gray-600 font-medium">Yüklen iyor...</p>
       </div>
     </div>
   );
+    
+  // Takım Modu Kontrolü
+  if (settings.mode === 'team' && settings.teamConfig) {
+    return (
+      <TeamModeView
+        settings={settings}
+        matches={matches}
+        teamSeriesStats={teamSeriesStats}
+        isAdmin={isAdmin}
+        goBack={goBack}
+        saveData={saveData}
+        setMatches={setMatches}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans pb-24">
@@ -3149,6 +3441,480 @@ function AddPlayerForm({ onAdd }) {
           <Plus size={20} />
         </button>
       </div>
+    </div>
+  );
+}
+
+// ==========================================
+// TEAM MODE VIEW (2v2)
+// ==========================================
+function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, saveData, setMatches }) {
+  const [activeMatchInput, setActiveMatchInput] = useState(null);
+  const [tempHomeScore, setTempHomeScore] = useState('');
+  const [tempAwayScore, setTempAwayScore] = useState('');
+  
+  const teamA = settings.teamConfig.teamA;
+  const teamB = settings.teamConfig.teamB;
+  
+  const handleAddMatch = async () => {
+    const newMatch = {
+      id: generateId(),
+      home: 'teamA',
+      away: 'teamB',
+      homeScore: 0,
+      awayScore: 0,
+      played: false,
+      round: matches.length + 1
+    };
+    
+    const newMatches = [...matches, newMatch];
+    setMatches(newMatches);
+    await saveData({ players: [], matches: newMatches, settings });
+  };
+  
+  const handleScoreSubmit = async (matchId) => {
+    const hScore = tempHomeScore === '' ? 0 : parseInt(tempHomeScore);
+    const aScore = tempAwayScore === '' ? 0 : parseInt(tempAwayScore);
+    
+    if (isNaN(hScore) || isNaN(aScore)) {
+      alert('Lütfen geçerli skorlar girin!');
+      return;
+    }
+    
+    const updatedMatches = matches.map(m => 
+      m.id === matchId 
+        ? { ...m, homeScore: hScore, awayScore: aScore, played: true, updatedAt: new Date().toISOString() }
+        : m
+    );
+    
+    setMatches(updatedMatches);
+    await saveData({ players: [], matches: updatedMatches, settings });
+    
+    setActiveMatchInput(null);
+    setTempHomeScore('');
+    setTempAwayScore('');
+  };
+  
+  const handleDeleteMatch = async (matchId) => {
+    const updatedMatches = matches.filter(m => m.id !== matchId);
+    setMatches(updatedMatches);
+    await saveData({ players: [], matches: updatedMatches, settings });
+  };
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white font-sans pb-24">
+      {/* HEADER */}
+      <div className="bg-slate-900/95 backdrop-blur border-b border-slate-800 p-4 sticky top-0 z-30 shadow-xl">
+        <div className="max-w-4xl mx-auto flex items-center gap-3">
+          <button onClick={goBack} className="p-2 -ml-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">{settings.name || 'Takım Turnuvası'}</h1>
+            <p className="text-[10px] text-purple-400 uppercase font-bold tracking-wider">
+              {teamSeriesStats?.seriesWon ? 'Seri Tamamlandı' : 'Seri Devam Ediyor'}
+            </p>
+          </div>
+          {isAdmin && <span className="text-[10px] bg-red-900/30 text-red-400 px-2 py-1 rounded border border-red-900/50">YÖNETİCİ</span>}
+        </div>
+      </div>
+      
+      <div className="max-w-4xl mx-auto p-4 space-y-6">
+        
+        {/* SERİ DURUMU - İHTIŞAMLI KART */}
+        <div className="bg-gradient-to-br from-purple-900/40 via-slate-800/60 to-blue-900/40 border border-purple-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden animate-fadeIn">
+          {/* Arkaplan Efektleri - Çoklu Katman */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10 animate-gradientShift"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(168,85,247,0.1),transparent_70%)] animate-pulse"></div>
+          
+          {/* Partiücül Efekti */}
+          <div className="absolute top-0 left-0 w-2 h-2 bg-purple-400 rounded-full animate-particle1"></div>
+          <div className="absolute top-10 right-20 w-1.5 h-1.5 bg-blue-400 rounded-full animate-particle2"></div>
+          <div className="absolute bottom-20 left-10 w-1 h-1 bg-pink-400 rounded-full animate-particle3"></div>
+          
+          <div className="relative z-10">
+            {/* Başlık */}
+            <div className="text-center mb-6">
+              <h2 className="text-sm font-bold text-purple-300 uppercase tracking-wider mb-1 animate-pulse">Seri Durumu</h2>
+              <p className="text-xs text-slate-400">
+                {teamSeriesStats?.extended ? 'Uzatma (ilk 6 galibiyet kazanır)' : 'İlk 5 Galibiyet Kazanır'}
+              </p>
+            </div>
+            
+            {/* Takımlar ve Skorlar */}
+            <div className="flex items-end justify-center gap-3 mb-6 px-2">
+              {/* TAKIM A */}
+              <div className="flex flex-col items-center animate-slideInLeft">
+                <div className="bg-slate-800/50 border border-slate-700 rounded-full px-2.5 py-1 mb-2">
+                  <h3 className="text-[11px] font-black text-white uppercase text-center flex items-center gap-1 whitespace-nowrap">
+                    <span>{teamA.players[0]}</span>
+                    <span className="text-slate-500 font-light">|</span>
+                    <span>{teamA.players[1]}</span>
+                  </h3>
+                </div>
+                <div className="text-center animate-scaleIn">
+                  <div className={`text-3xl font-black text-white w-14 h-14 rounded-lg flex items-center justify-center shadow-xl border-2 animate-glowPulseBlue relative overflow-hidden ${
+                    (teamSeriesStats?.teamAWins || 0) > (teamSeriesStats?.teamBWins || 0) 
+                      ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 border-emerald-400/40' 
+                      : (teamSeriesStats?.teamAWins || 0) === (teamSeriesStats?.teamBWins || 0)
+                      ? 'bg-gradient-to-br from-blue-500 to-blue-700 border-blue-400/40'
+                      : 'bg-gradient-to-br from-red-500 to-red-700 border-red-400/40'
+                  }`}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent animate-shine"></div>
+                    <span className="relative z-10">{teamSeriesStats?.teamAWins || 0}</span>
+                  </div>
+                  <div className="flex justify-center gap-0.5 mt-1.5">
+                    {[...Array(teamSeriesStats?.totalGames || 5)].map((_, i) => (
+                      <Trophy 
+                        key={i} 
+                        size={7} 
+                        className={i < (teamSeriesStats?.teamAWins || 0) ? 'text-yellow-400 fill-yellow-400 animate-bounce' : 'text-slate-700'}
+                        style={{ animationDelay: `${i * 100}ms` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              {/* AYIRICI */}
+              <div className="text-xl font-black text-purple-400 animate-pulse pb-12">-</div>
+              
+              {/* TAKIM B */}
+              <div className="flex flex-col items-center animate-slideInRight">
+                <div className="bg-slate-800/50 border border-slate-700 rounded-full px-2.5 py-1 mb-2">
+                  <h3 className="text-[11px] font-black text-white uppercase text-center flex items-center gap-1 whitespace-nowrap">
+                    <span>{teamB.players[0]}</span>
+                    <span className="text-slate-500 font-light">|</span>
+                    <span>{teamB.players[1]}</span>
+                  </h3>
+                </div>
+                <div className="text-center animate-scaleIn" style={{ animationDelay: '200ms' }}>
+                  <div className={`text-3xl font-black text-white w-14 h-14 rounded-lg flex items-center justify-center shadow-xl border-2 animate-glowPulseRed relative overflow-hidden ${
+                    (teamSeriesStats?.teamBWins || 0) > (teamSeriesStats?.teamAWins || 0) 
+                      ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 border-emerald-400/40' 
+                      : (teamSeriesStats?.teamAWins || 0) === (teamSeriesStats?.teamBWins || 0)
+                      ? 'bg-gradient-to-br from-blue-500 to-blue-700 border-blue-400/40'
+                      : 'bg-gradient-to-br from-red-500 to-red-700 border-red-400/40'
+                  }`}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent animate-shine" style={{ animationDelay: '1s' }}></div>
+                    <span className="relative z-10">{teamSeriesStats?.teamBWins || 0}</span>
+                  </div>
+                  <div className="flex justify-center gap-0.5 mt-1.5">
+                    {[...Array(teamSeriesStats?.totalGames || 5)].map((_, i) => (
+                      <Trophy 
+                        key={i} 
+                        size={7} 
+                        className={i < (teamSeriesStats?.teamBWins || 0) ? 'text-yellow-400 fill-yellow-400 animate-bounce' : 'text-slate-700'}
+                        style={{ animationDelay: `${i * 100 + 50}ms` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Kazanan Bilgisi */}
+            {teamSeriesStats?.seriesWon && (
+              <div className="mt-6 text-center animate-winnerReveal">
+                <div className="inline-block bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 px-6 py-3 rounded-xl shadow-2xl animate-bounceWinner relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmerFast"></div>
+                  <div className="flex items-center gap-2 relative z-10">
+                    <Trophy size={20} className="text-white animate-spin" style={{ animationDuration: '2s' }} />
+                    <span className="text-lg font-black text-white uppercase">
+                      {teamSeriesStats.winner === 'teamA' ? teamA.name : teamB.name} KAZANDI!
+                    </span>
+                    <Sparkles size={20} className="text-white animate-pulse" />
+                  </div>
+                </div>
+                {/* Uzat Butonu */}
+                {isAdmin && !teamSeriesStats.extended && (
+                  <button
+                    onClick={async () => {
+                      const updatedSettings = {
+                        ...settings,
+                        teamConfig: {
+                          ...settings.teamConfig,
+                          extended: true
+                        }
+                      };
+                      await saveData({ players: [], matches, settings: updatedSettings });
+                    }}
+                    className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 mx-auto"
+                  >
+                    <Plus size={16} /> Uzat (6'ya kadar)
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* MAÇ GEÇMİŞİ */}
+        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-white">Maç Geçmişi</h3>
+            {isAdmin && !teamSeriesStats?.seriesWon && (
+              <button 
+                onClick={handleAddMatch}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+              >
+                <Plus size={16} /> Yeni Maç
+              </button>
+            )}
+          </div>
+          
+          <div className="space-y-3">
+            {matches.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">Henüz maç eklenmedi</div>
+            ) : (
+              matches.slice().reverse().map((match, idx) => {
+                const isEditMode = activeMatchInput === match.id;
+                const homeWon = match.played && parseInt(match.homeScore) > parseInt(match.awayScore);
+                const awayWon = match.played && parseInt(match.awayScore) > parseInt(match.homeScore);
+                
+                return (
+                  <div 
+                    key={match.id}
+                    className={`bg-slate-800/50 border rounded-xl p-4 ${
+                      match.played 
+                        ? 'border-slate-700' 
+                        : 'border-yellow-500/30 bg-yellow-900/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      {/* Maç Numarası */}
+                      <div className="text-xs text-slate-500 font-bold">MAÇ #{match.round}</div>
+                      
+                      {/* Skor veya Giriş */}
+                      <div className="flex-1 flex items-center justify-center gap-4">
+                        {isEditMode ? (
+                          <div className="flex items-center gap-2">
+                            <select 
+                              value={tempHomeScore}
+                              onChange={(e) => setTempHomeScore(e.target.value)}
+                              className="w-20 bg-slate-950 border border-slate-700 rounded-lg p-2 text-center text-white font-bold"
+                            >
+                              <option value="">-</option>
+                              {[...Array(14)].map((_, i) => (
+                                <option key={i} value={i}>{i}</option>
+                              ))}
+                            </select>
+                            <span className="text-slate-500">-</span>
+                            <select 
+                              value={tempAwayScore}
+                              onChange={(e) => setTempAwayScore(e.target.value)}
+                              className="w-20 bg-slate-950 border border-slate-700 rounded-lg p-2 text-center text-white font-bold"
+                            >
+                              <option value="">-</option>
+                              {[...Array(14)].map((_, i) => (
+                                <option key={i} value={i}>{i}</option>
+                              ))}
+                            </select>
+                            <button 
+                              onClick={() => handleScoreSubmit(match.id)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm"
+                            >
+                              <Check size={16} />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setActiveMatchInput(null);
+                                setTempHomeScore('');
+                                setTempAwayScore('');
+                              }}
+                              className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4">
+                            <div className={`text-center ${ homeWon ? 'scale-105' : '' } transition-transform`}>
+                              <div className="text-[10px] text-slate-500 mb-0.5 font-medium">{teamA.name}</div>
+                              <div className={`text-2xl font-bold rounded-lg px-3 py-1 ${
+                                homeWon ? 'text-emerald-400 bg-emerald-500/10' : awayWon ? 'text-slate-600' : 'text-white bg-slate-700/30'
+                              }`}>
+                                {match.played ? match.homeScore : '-'}
+                              </div>
+                            </div>
+                            
+                            <div className="text-lg font-bold text-slate-600">vs</div>
+                            
+                            <div className={`text-center ${ awayWon ? 'scale-105' : '' } transition-transform`}>
+                              <div className="text-[10px] text-slate-500 mb-0.5 font-medium">{teamB.name}</div>
+                              <div className={`text-2xl font-bold rounded-lg px-3 py-1 ${
+                                awayWon ? 'text-emerald-400 bg-emerald-500/10' : homeWon ? 'text-slate-600' : 'text-white bg-slate-700/30'
+                              }`}>
+                                {match.played ? match.awayScore : '-'}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Admin Butonları */}
+                      <div className="flex gap-2">
+                        {isAdmin && !match.played && !isEditMode && (
+                          <button 
+                            onClick={() => {
+                              setActiveMatchInput(match.id);
+                              setTempHomeScore('');
+                              setTempAwayScore('');
+                            }}
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-bold"
+                          >
+                            Skor Gir
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button 
+                            onClick={() => handleDeleteMatch(match.id)}
+                            className="p-2 bg-red-900/20 hover:bg-red-900/40 text-red-400 hover:text-red-300 rounded-lg transition-colors"
+                            title="Maçı Sil"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Kazanan Göstergesi */}
+                    {match.played && (homeWon || awayWon) && (
+                      <div className="mt-3 text-center">
+                        <div className={`inline-block px-4 py-1 rounded-full text-xs font-bold ${
+                          homeWon ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                        }`}>
+                          {homeWon ? `${teamA.name} KAZANDI` : `${teamB.name} KAZANDI`}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <style>{`
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        
+        /* Animasyonlar */
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideInLeft {
+          from { opacity: 0; transform: translateX(-30px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(30px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        
+        @keyframes shimmerFast {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+        
+        @keyframes shine {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(200%); }
+        }
+        
+        @keyframes glowPulseBlue {
+          0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3); }
+          50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8), 0 0 60px rgba(59, 130, 246, 0.5); }
+        }
+        
+        @keyframes glowPulseRed {
+          0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 0 40px rgba(239, 68, 68, 0.3); }
+          50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.8), 0 0 60px rgba(239, 68, 68, 0.5); }
+        }
+        
+        @keyframes glow {
+          0%, 100% { filter: brightness(1); }
+          50% { filter: brightness(1.2); }
+        }
+        
+        @keyframes gradientShift {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+        }
+        
+        @keyframes particle1 {
+          0% { transform: translate(0, 0) scale(1); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translate(100vw, 50vh) scale(0.5); opacity: 0; }
+        }
+        
+        @keyframes particle2 {
+          0% { transform: translate(0, 0) scale(1); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translate(-80vw, 60vh) scale(0.3); opacity: 0; }
+        }
+        
+        @keyframes particle3 {
+          0% { transform: translate(0, 0) scale(1); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translate(50vw, -40vh) scale(0.7); opacity: 0; }
+        }
+        
+        @keyframes winnerReveal {
+          0% { opacity: 0; transform: scale(0) rotate(-10deg); }
+          50% { transform: scale(1.1) rotate(2deg); }
+          100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+        
+        @keyframes bounceWinner {
+          0%, 100% { transform: translateY(0); }
+          25% { transform: translateY(-15px); }
+          50% { transform: translateY(0); }
+          75% { transform: translateY(-8px); }
+        }
+        
+        .animate-fadeIn { animation: fadeIn 0.6s ease-out forwards; }
+        .animate-slideInLeft { animation: slideInLeft 0.8s ease-out; }
+        .animate-slideInRight { animation: slideInRight 0.8s ease-out; }
+        .animate-scaleIn { animation: scaleIn 0.5s ease-out; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-shimmer { 
+          background-size: 200% auto;
+          animation: shimmer 3s linear infinite; 
+        }
+        .animate-shimmerFast { animation: shimmerFast 2s linear infinite; }
+        .animate-shine { animation: shine 3s ease-in-out infinite; }
+        .animate-glowPulseBlue { animation: glowPulseBlue 2s ease-in-out infinite; }
+        .animate-glowPulseRed { animation: glowPulseRed 2s ease-in-out infinite; }
+        .animate-glow { animation: glow 2s ease-in-out infinite; }
+        .animate-gradientShift { animation: gradientShift 4s ease-in-out infinite; }
+        .animate-particle1 { animation: particle1 8s ease-in-out infinite; }
+        .animate-particle2 { animation: particle2 10s ease-in-out infinite 2s; }
+        .animate-particle3 { animation: particle3 7s ease-in-out infinite 1s; }
+        .animate-winnerReveal { animation: winnerReveal 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .animate-bounceWinner { animation: bounceWinner 1.5s ease-in-out infinite; }
+      `}</style>
     </div>
   );
 }
