@@ -2824,16 +2824,15 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                    );
                   })
                 ) : (
-                  // Normal Kullanıcı Görünümü - Minimal ve Kompakt
-                  <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-                    <div className="p-3 border-b border-slate-800">
-                      <h3 className="text-sm font-bold text-white">Maç Geçmişi</h3>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Son 5 maç</p>
+                  // Normal Kullanıcı Görünümü - Maçkolik Tarzı Minimal
+                  <div className="bg-white rounded-xl overflow-hidden shadow-sm">
+                    <div className="px-4 py-2 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Maç Sonuçları</h3>
                     </div>
-                    <div className="divide-y divide-slate-800/50">
+                    <div className="divide-y divide-slate-100">
                       {matches
                         .filter(m => m.played)
-                        .sort((a, b) => new Date(b.updatedAt || b.playedAt || 0) - new Date(a.updatedAt || a.playedAt || 0))
+                        .sort((a, b) => b.round - a.round)
                         .slice(0, 5)
                         .map(match => {
                           const h = players.find(p => p.id === match.home);
@@ -2844,46 +2843,36 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                           const awayWon = awayScore > homeScore;
                                   
                           return (
-                            <div key={match.id} className="p-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
+                            <div key={match.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
                               {/* Sol - Ev Sahibi */}
                               <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                                  homeWon ? 'bg-emerald-500/20 text-emerald-400' : awayWon ? 'bg-slate-700 text-slate-400' : 'bg-slate-700 text-slate-300'
-                                }`}>
-                                  {h?.name.charAt(0) || '?'}
-                                </div>
-                                <span className={`text-xs font-bold truncate ${
-                                  homeWon ? 'text-white' : 'text-slate-400'
+                                <span className={`text-sm font-semibold truncate ${
+                                  homeWon ? 'text-slate-900' : 'text-slate-400'
                                 }`}>{h?.name || 'Bilinmeyen'}</span>
                               </div>
                                       
                               {/* Orta - Skor */}
-                              <div className="flex items-center gap-2 px-3 flex-shrink-0">
-                                <span className={`text-sm font-black ${
-                                  homeWon ? 'text-emerald-400' : awayWon ? 'text-slate-500' : 'text-slate-300'
+                              <div className="flex items-center gap-1.5 px-3 flex-shrink-0">
+                                <span className={`text-base font-black ${
+                                  homeWon ? 'text-slate-900' : 'text-slate-400'
                                 }`}>{homeScore}</span>
-                                <span className="text-slate-600 text-xs">-</span>
-                                <span className={`text-sm font-black ${
-                                  awayWon ? 'text-emerald-400' : homeWon ? 'text-slate-500' : 'text-slate-300'
+                                <span className="text-slate-300 text-xs font-bold">-</span>
+                                <span className={`text-base font-black ${
+                                  awayWon ? 'text-slate-900' : 'text-slate-400'
                                 }`}>{awayScore}</span>
                               </div>
                                       
                               {/* Sağ - Deplasman */}
                               <div className="flex items-center gap-2 flex-1 min-w-0 flex-row-reverse">
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                                  awayWon ? 'bg-emerald-500/20 text-emerald-400' : homeWon ? 'bg-slate-700 text-slate-400' : 'bg-slate-700 text-slate-300'
-                                }`}>
-                                  {a?.name.charAt(0) || '?'}
-                                </div>
-                                <span className={`text-xs font-bold truncate text-right ${
-                                  awayWon ? 'text-white' : 'text-slate-400'
+                                <span className={`text-sm font-semibold truncate text-right ${
+                                  awayWon ? 'text-slate-900' : 'text-slate-400'
                                 }`}>{a?.name || 'Bilinmeyen'}</span>
                               </div>
                             </div>
                           );
                         })}
                       {matches.filter(m => m.played).length === 0 && (
-                        <div className="p-6 text-center text-slate-500 text-sm">Henüz maç oynanmadı</div>
+                        <div className="p-6 text-center text-slate-400 text-sm">Henüz maç oynanmadı</div>
                       )}
                     </div>
                   </div>
