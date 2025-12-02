@@ -594,6 +594,8 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
   // Accordion state'leri
   const [showTeamSelection, setShowTeamSelection] = useState(false);
   const [showChampionships, setShowChampionships] = useState(false);
+  const [showTeamA, setShowTeamA] = useState(false);
+  const [showTeamB, setShowTeamB] = useState(false);
   
   // Genel seri durumu için seçilen takımlar - Firebase'den gelen veriyi kullan
   const seriesTeamAPlayer1 = seriesTeams?.teamA?.player1 || '';
@@ -696,58 +698,86 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
             </h3>
             <p className="text-xs text-slate-400 mb-3">Karşılaşacak 2 takımı seçin</p>
             
-            {/* Takım A */}
-            <div className="mb-4 p-3 bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-700/30 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Trophy size={12} className="text-blue-400" />
-                <h4 className="text-xs font-bold text-blue-300 uppercase">Takım A</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select 
-                  value={seriesTeamAPlayer1} 
-                  onChange={(e) => updateSeriesTeams(e.target.value, seriesTeamAPlayer2, seriesTeamBPlayer1, seriesTeamBPlayer2)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-blue-500 outline-none"
-                >
-                  <option value="">Oyuncu 1</option>
-                  {PLAYERS.filter(p => p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer1 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <select 
-                  value={seriesTeamAPlayer2} 
-                  onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, e.target.value, seriesTeamBPlayer1, seriesTeamBPlayer2)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-blue-500 outline-none"
-                >
-                  <option value="">Oyuncu 2</option>
-                  {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamBPlayer1 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+            {/* Takım A - Accordion */}
+            <div className="mb-3 bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-700/30 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowTeamA(!showTeamA)}
+                className="w-full p-2 flex items-center justify-between text-left hover:bg-blue-900/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Trophy size={12} className="text-blue-400" />
+                  <h4 className="text-xs font-bold text-blue-300 uppercase">Takım A</h4>
+                  {seriesTeamAPlayer1 && seriesTeamAPlayer2 && (
+                    <span className="text-[10px] text-blue-400/60">({seriesTeamAPlayer1} & {seriesTeamAPlayer2})</span>
+                  )}
+                </div>
+                <ChevronDown size={14} className={`text-blue-400 transition-transform ${showTeamA ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showTeamA && (
+                <div className="p-2 pt-0 border-t border-blue-700/30">
+                  <div className="grid grid-cols-2 gap-2">
+                    <select 
+                      value={seriesTeamAPlayer1} 
+                      onChange={(e) => updateSeriesTeams(e.target.value, seriesTeamAPlayer2, seriesTeamBPlayer1, seriesTeamBPlayer2)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white text-xs focus:border-blue-500 outline-none"
+                    >
+                      <option value="">Oyuncu 1</option>
+                      {PLAYERS.filter(p => p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer1 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <select 
+                      value={seriesTeamAPlayer2} 
+                      onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, e.target.value, seriesTeamBPlayer1, seriesTeamBPlayer2)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white text-xs focus:border-blue-500 outline-none"
+                    >
+                      <option value="">Oyuncu 2</option>
+                      {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamBPlayer1 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
             
-            <div className="text-center text-slate-500 text-xs mb-4 font-bold">VS</div>
+            <div className="text-center text-slate-500 text-xs mb-3 font-bold">VS</div>
             
-            {/* Takım B */}
-            <div className="mb-3 p-3 bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-700/30 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Trophy size={12} className="text-red-400" />
-                <h4 className="text-xs font-bold text-red-300 uppercase">Takım B</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select 
-                  value={seriesTeamBPlayer1} 
-                  onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, seriesTeamAPlayer2, e.target.value, seriesTeamBPlayer2)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-red-500 outline-none"
-                >
-                  <option value="">Oyuncu 1</option>
-                  {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <select 
-                  value={seriesTeamBPlayer2} 
-                  onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, seriesTeamAPlayer2, seriesTeamBPlayer1, e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-red-500 outline-none"
-                >
-                  <option value="">Oyuncu 2</option>
-                  {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer1).map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+            {/* Takım B - Accordion */}
+            <div className="bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-700/30 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowTeamB(!showTeamB)}
+                className="w-full p-2 flex items-center justify-between text-left hover:bg-red-900/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Trophy size={12} className="text-red-400" />
+                  <h4 className="text-xs font-bold text-red-300 uppercase">Takım B</h4>
+                  {seriesTeamBPlayer1 && seriesTeamBPlayer2 && (
+                    <span className="text-[10px] text-red-400/60">({seriesTeamBPlayer1} & {seriesTeamBPlayer2})</span>
+                  )}
+                </div>
+                <ChevronDown size={14} className={`text-red-400 transition-transform ${showTeamB ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showTeamB && (
+                <div className="p-2 pt-0 border-t border-red-700/30">
+                  <div className="grid grid-cols-2 gap-2">
+                    <select 
+                      value={seriesTeamBPlayer1} 
+                      onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, seriesTeamAPlayer2, e.target.value, seriesTeamBPlayer2)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white text-xs focus:border-red-500 outline-none"
+                    >
+                      <option value="">Oyuncu 1</option>
+                      {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <select 
+                      value={seriesTeamBPlayer2} 
+                      onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, seriesTeamAPlayer2, seriesTeamBPlayer1, e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white text-xs focus:border-red-500 outline-none"
+                    >
+                      <option value="">Oyuncu 2</option>
+                      {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer1).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
