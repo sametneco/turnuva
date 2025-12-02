@@ -3773,10 +3773,34 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
       
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         
-        {/* SERİ DURUMU - İHTIŞAMLI KART */}
-        <div className="bg-gradient-to-br from-purple-900/40 via-slate-800/60 to-blue-900/40 border border-purple-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden animate-fadeIn">
-          {/* Arkaplan Efektleri - Çoklu Katman */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10 animate-gradientShift"></div>
+        {/* SERİ DURUMU - Dinamik Işıldama */}
+        <div className={`border border-purple-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden animate-fadeIn transition-all duration-1000 ${
+          (() => {
+            const teamAWins = teamSeriesStats?.teamAWins || 0;
+            const teamBWins = teamSeriesStats?.teamBWins || 0;
+            if (teamAWins > teamBWins) {
+              return 'bg-gradient-to-br from-blue-900/50 via-blue-800/40 to-slate-900/60';
+            } else if (teamBWins > teamAWins) {
+              return 'bg-gradient-to-br from-red-900/50 via-red-800/40 to-slate-900/60';
+            } else {
+              return 'bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/60';
+            }
+          })()
+        }`}>
+          {/* Arkaplan Efektleri - Dinamik */}
+          <div className={`absolute inset-0 animate-gradientShift transition-all duration-1000 ${
+            (() => {
+              const teamAWins = teamSeriesStats?.teamAWins || 0;
+              const teamBWins = teamSeriesStats?.teamBWins || 0;
+              if (teamAWins > teamBWins) {
+                return 'bg-gradient-to-r from-blue-500/15 via-transparent to-blue-500/15';
+              } else if (teamBWins > teamAWins) {
+                return 'bg-gradient-to-r from-red-500/15 via-transparent to-red-500/15';
+              } else {
+                return 'bg-gradient-to-r from-slate-500/10 via-transparent to-slate-500/10';
+              }
+            })()
+          }`}></div>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(168,85,247,0.1),transparent_70%)] animate-pulse"></div>
           
           {/* Partiücül Efekti */}
@@ -3913,54 +3937,11 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                 </div>
               </div>
               
-              {/* Toplam Maç Progress Bar - Mortal Kombat Tarzı */}
-              <div className="bg-slate-900/80 border border-slate-700 rounded-lg p-3">
-                <div className="text-center mb-2">
-                  <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">⚔️ Toplam Maç Skoru</div>
-                </div>
-                
-                {/* Progress Bar Container */}
-                <div className="relative h-8 bg-slate-950 rounded-lg overflow-hidden border-2 border-slate-700">
-                  {/* Takım A Bar (Mavi - Soldan) */}
-                  <div 
-                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 transition-all duration-500 ease-out"
-                    style={{ 
-                      width: `${(() => {
-                        const totalMatches = matches.filter(m => m.played).length;
-                        if (totalMatches === 0) return 0;
-                        return ((teamSeriesStats?.teamAWins || 0) / totalMatches) * 100;
-                      })()}%` 
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
-                  </div>
-                  
-                  {/* Takım B Bar (Kırmızı - Sağdan) */}
-                  <div 
-                    className="absolute right-0 top-0 h-full bg-gradient-to-l from-red-600 via-red-500 to-red-600 transition-all duration-500 ease-out"
-                    style={{ 
-                      width: `${(() => {
-                        const totalMatches = matches.filter(m => m.played).length;
-                        if (totalMatches === 0) return 0;
-                        return ((teamSeriesStats?.teamBWins || 0) / totalMatches) * 100;
-                      })()}%` 
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/20 to-transparent animate-shimmer"></div>
-                  </div>
-                  
-                  {/* Skor Göstergeleri */}
-                  <div className="absolute inset-0 flex items-center justify-between px-3 z-20">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
-                      <span className="text-sm font-black text-white drop-shadow-lg">{teamSeriesStats?.teamAWins || 0}</span>
-                    </div>
-                    <div className="text-xs font-bold text-slate-300 bg-slate-900/90 px-2 py-0.5 rounded">{matches.filter(m => m.played).length} MAÇ</div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-black text-white drop-shadow-lg">{teamSeriesStats?.teamBWins || 0}</span>
-                      <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
-                    </div>
-                  </div>
+              {/* Toplam Maç - Minimal */}
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 bg-slate-800/50 border border-slate-700 rounded-full px-3 py-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></div>
+                  <span className="text-xs font-bold text-slate-300">{matches.filter(m => m.played).length} Maç Oynandı</span>
                 </div>
               </div>
             </div>
