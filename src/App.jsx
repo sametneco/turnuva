@@ -244,7 +244,8 @@ export default function App() {
             started: false, 
             name: name,
             mode: mode,
-            teamConfig: teamConfig // Takım modu için: { teamA: {name, players: []}, teamB: {name, players: []} }
+            teamConfig: teamConfig, // Takım modu için: { teamA: {name, players: []}, teamB: {name, players: []} }
+            championshipAdded: false // Şampiyonluk sadece bir kez eklensin
           }
         };
         
@@ -289,8 +290,10 @@ export default function App() {
             console.log('Mevcut şampiyonluklar:', currentData);
             const updatedChampionships = { ...currentData };
             
-            // Eğer takım modu ve seri tamamlanmışsa
-            if (tournamentData.settings?.mode === 'team' && tournamentData.settings?.teamConfig) {
+            // Eğer takım modu, championshipAdded=true ve seri tamamlanmışsa
+            if (tournamentData.settings?.mode === 'team' && 
+                tournamentData.settings?.teamConfig && 
+                tournamentData.settings?.championshipAdded === true) {
               const { matches, settings } = tournamentData;
               const teamConfig = settings.teamConfig;
               
@@ -313,13 +316,13 @@ export default function App() {
               const targetWins = teamConfig.extended ? 6 : 5;
               const seriesWon = teamAWins >= targetWins || teamBWins >= targetWins;
               
-              console.log('Seri bitti mi?:', seriesWon, 'Target:', targetWins);
+              console.log('Seri bitti mi?:', seriesWon, 'Target:', targetWins, 'ChampionshipAdded:', settings.championshipAdded);
               
               if (seriesWon) {
                 const winner = teamAWins >= targetWins ? 'teamA' : 'teamB';
                 const winnerTeam = winner === 'teamA' ? teamConfig.teamA : teamConfig.teamB;
                 
-                // Kazanan takımın adından şampiyonluk düşür
+                // Kazanan takımın adından şampiyonluk düşür (sadece championshipAdded=true ise)
                 const teamName = winnerTeam.name; // Örn: "SAMET & BURAK"
                 console.log('Kazanan takım:', teamName, 'Mevcut sayı:', updatedChampionships[teamName]);
                 
@@ -3587,25 +3590,30 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
   const [activeMatchInput, setActiveMatchInput] = useState(null);
   const [tempHomeScore, setTempHomeScore] = useState('');
   const [tempAwayScore, setTempAwayScore] = useState('');
-  const [championshipAdded, setChampionshipAdded] = useState(false);
   
   const teamA = settings.teamConfig.teamA;
   const teamB = settings.teamConfig.teamB;
   
+  // Şampiyonluk sadece bir kez eklensin (Firebase'den oku)
+  const championshipAdded = settings.championshipAdded || false;
+  
   // Seri kazananını şampiyonluklar ekle
   useEffect(() => {
-    if (teamSeriesStats?.seriesWon && teamSeriesStats?.winner && !championshipAdded) {
+    if (teamSeriesStats?.seriesWon && teamSeriesStats?.winner && !championshipAdded && isAdmin) {
       const winnerTeam = teamSeriesStats.winner === 'teamA' ? teamA : teamB;
-      // Takım adını oluştur (oyuncu isimleriyle)
       const teamName = winnerTeam.name; // Örn: "SAMET & BURAK"
+      
+      // Şampiyonluk ekle
       updateChampionships(teamName);
-      setChampionshipAdded(true);
+      
+      // Flag'i güncelle (bir daha ekleme)
+      const updatedSettings = {
+        ...settings,
+        championshipAdded: true
+      };
+      saveData({ players: [], matches, settings: updatedSettings });
     }
-    // Eğer seri henüz bitmemişse, championship flag'i sıfırla
-    if (!teamSeriesStats?.seriesWon) {
-      setChampionshipAdded(false);
-    }
-  }, [teamSeriesStats, teamA, teamB, updateChampionships, championshipAdded]);
+  }, [teamSeriesStats, teamA, teamB, updateChampionships, championshipAdded, isAdmin, matches, settings, saveData]);
   
   const handleAddMatch = async () => {
     const newMatch = {
