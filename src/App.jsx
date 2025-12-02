@@ -2825,55 +2825,75 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                  );
                 })
                 ) : (
-                  // Normal Kullanıcı Görünümü - Maçkolik Tarzı Minimal
-                  <div className="bg-white rounded-xl overflow-hidden shadow-sm">
-                    <div className="px-4 py-2 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Maç Sonuçları</h3>
+                  // Normal Kullanıcı Görünümü - Tatlı ve Basit
+                  <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl overflow-hidden">
+                    <div className="px-3 py-2 border-b border-slate-800/50">
+                      <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Maç Sonuçları</h3>
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-800/30">
                       {matches
                         .filter(m => m.played)
                         .sort((a, b) => b.round - a.round)
                         .slice(0, 5)
-                        .map(match => {
+                        .map((match, idx) => {
                           const h = players.find(p => p.id === match.home);
                           const a = players.find(p => p.id === match.away);
                           const homeScore = parseInt(match.homeScore);
                           const awayScore = parseInt(match.awayScore);
                           const homeWon = homeScore > awayScore;
                           const awayWon = awayScore > homeScore;
-                                  
+                          const isDraw = homeScore === awayScore;
+                          
                           return (
-                            <div key={match.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-                              {/* Sol - Ev Sahibi */}
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <span className={`text-sm font-semibold truncate ${
-                                  homeWon ? 'text-slate-900' : 'text-slate-400'
-                                }`}>{h?.name || 'Bilinmeyen'}</span>
+                            <div key={match.id} className="px-3 py-2">
+                              {/* Maç Numarası */}
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Maç {match.round}</span>
                               </div>
-                                      
-                              {/* Orta - Skor */}
-                              <div className="flex items-center gap-1.5 px-3 flex-shrink-0">
-                                <span className={`text-base font-black ${
-                                  homeWon ? 'text-slate-900' : 'text-slate-400'
-                                }`}>{homeScore}</span>
-                                <span className="text-slate-300 text-xs font-bold">-</span>
-                                <span className={`text-base font-black ${
-                                  awayWon ? 'text-slate-900' : 'text-slate-400'
-                                }`}>{awayScore}</span>
-                              </div>
-                                      
-                              {/* Sağ - Deplasman */}
-                              <div className="flex items-center gap-2 flex-1 min-w-0 flex-row-reverse">
-                                <span className={`text-sm font-semibold truncate text-right ${
-                                  awayWon ? 'text-slate-900' : 'text-slate-400'
-                                }`}>{a?.name || 'Bilinmeyen'}</span>
+                              
+                              <div className="flex items-center gap-2">
+                                {/* Sol - Ev Sahibi */}
+                                <div className="flex-1 min-w-0">
+                                  <div className={`px-2 py-1 rounded-full text-center ${
+                                    homeWon ? 'bg-emerald-500/20 border border-emerald-500/30' : 
+                                    isDraw ? 'bg-slate-700/30 border border-slate-600/30' : 
+                                    'bg-red-500/10 border border-red-500/20'
+                                  }`}>
+                                    <span className={`text-xs font-medium truncate block ${
+                                      homeWon ? 'text-emerald-400' : isDraw ? 'text-slate-400' : 'text-slate-500'
+                                    }`}>{h?.name || 'Bilinmeyen'}</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Orta - Skor */}
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span className={`font-bold ${
+                                    homeWon ? 'text-emerald-400 text-base' : 'text-slate-600 text-sm'
+                                  }`}>{homeScore}</span>
+                                  <span className="text-slate-700 text-[10px]">-</span>
+                                  <span className={`font-bold ${
+                                    awayWon ? 'text-emerald-400 text-base' : 'text-slate-600 text-sm'
+                                  }`}>{awayScore}</span>
+                                </div>
+                                
+                                {/* Sağ - Deplasman */}
+                                <div className="flex-1 min-w-0">
+                                  <div className={`px-2 py-1 rounded-full text-center ${
+                                    awayWon ? 'bg-emerald-500/20 border border-emerald-500/30' : 
+                                    isDraw ? 'bg-slate-700/30 border border-slate-600/30' : 
+                                    'bg-red-500/10 border border-red-500/20'
+                                  }`}>
+                                    <span className={`text-xs font-medium truncate block ${
+                                      awayWon ? 'text-emerald-400' : isDraw ? 'text-slate-400' : 'text-slate-500'
+                                    }`}>{a?.name || 'Bilinmeyen'}</span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           );
                         })}
                       {matches.filter(m => m.played).length === 0 && (
-                        <div className="p-6 text-center text-slate-400 text-sm">Henüz maç oynanmadı</div>
+                        <div className="p-4 text-center text-slate-500 text-xs">Henüz maç oynanmadı</div>
                       )}
                     </div>
                   </div>
@@ -4283,50 +4303,70 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
             </div>
           </div>
         ) : (
-          // Normal Kullanıcı Görünümü - Maçkolik Tarzı Minimal
-          <div className="bg-white rounded-xl overflow-hidden shadow-sm">
-            <div className="px-4 py-2 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Maç Sonuçları</h3>
+          // Normal Kullanıcı Görünümü - Tatlı ve Basit
+          <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl overflow-hidden">
+            <div className="px-3 py-2 border-b border-slate-800/50">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Maç Sonuçları</h3>
             </div>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-800/30">
               {matches.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 text-sm">Henüz maç eklenmedi</div>
+                <div className="p-4 text-center text-slate-500 text-xs">Henüz maç eklenmedi</div>
               ) : (
                 matches
                   .filter(m => m.played)
                   .slice().reverse()
                   .slice(0, 5)
-                  .map(match => {
+                  .map((match, idx) => {
                     const homeScore = parseInt(match.homeScore);
                     const awayScore = parseInt(match.awayScore);
                     const homeWon = homeScore > awayScore;
                     const awayWon = awayScore > homeScore;
+                    const isDraw = homeScore === awayScore;
                     
                     return (
-                      <div key={match.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-                        {/* Sol - Takım A */}
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className={`text-sm font-semibold truncate ${
-                            homeWon ? 'text-slate-900' : 'text-slate-400'
-                          }`}>{teamA.name}</span>
+                      <div key={match.id} className="px-3 py-2">
+                        {/* Maç Numarası */}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[9px] font-bold text-purple-400 uppercase tracking-wide">Maç {match.round}</span>
                         </div>
                         
-                        {/* Orta - Skor */}
-                        <div className="flex items-center gap-1.5 px-3 flex-shrink-0">
-                          <span className={`text-base font-black ${
-                            homeWon ? 'text-slate-900' : 'text-slate-400'
-                          }`}>{homeScore}</span>
-                          <span className="text-slate-300 text-xs font-bold">-</span>
-                          <span className={`text-base font-black ${
-                            awayWon ? 'text-slate-900' : 'text-slate-400'
-                          }`}>{awayScore}</span>
-                        </div>
-                        
-                        {/* Sağ - Takım B */}
-                        <div className="flex items-center gap-2 flex-1 min-w-0 flex-row-reverse">
-                          <span className={`text-sm font-semibold truncate text-right ${
-                            awayWon ? 'text-slate-900' : 'text-slate-400'
-                          }`}>{teamB.name}</span>
+                        <div className="flex items-center gap-2">
+                          {/* Sol - Takım A */}
+                          <div className="flex-1 min-w-0">
+                            <div className={`px-2 py-1 rounded-full text-center ${
+                              homeWon ? 'bg-emerald-500/20 border border-emerald-500/30' : 
+                              isDraw ? 'bg-slate-700/30 border border-slate-600/30' : 
+                              'bg-red-500/10 border border-red-500/20'
+                            }`}>
+                              <span className={`text-xs font-medium truncate block ${
+                                homeWon ? 'text-emerald-400' : isDraw ? 'text-slate-400' : 'text-slate-500'
+                              }`}>{teamA.name}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Orta - Skor */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`font-bold ${
+                              homeWon ? 'text-emerald-400 text-base' : 'text-slate-600 text-sm'
+                            }`}>{homeScore}</span>
+                            <span className="text-slate-700 text-[10px]">-</span>
+                            <span className={`font-bold ${
+                              awayWon ? 'text-emerald-400 text-base' : 'text-slate-600 text-sm'
+                            }`}>{awayScore}</span>
+                          </div>
+                          
+                          {/* Sağ - Takım B */}
+                          <div className="flex-1 min-w-0">
+                            <div className={`px-2 py-1 rounded-full text-center ${
+                              awayWon ? 'bg-emerald-500/20 border border-emerald-500/30' : 
+                              isDraw ? 'bg-slate-700/30 border border-slate-600/30' : 
+                              'bg-red-500/10 border border-red-500/20'
+                            }`}>
+                              <span className={`text-xs font-medium truncate block ${
+                                awayWon ? 'text-emerald-400' : isDraw ? 'text-slate-400' : 'text-slate-500'
+                              }`}>{teamB.name}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
