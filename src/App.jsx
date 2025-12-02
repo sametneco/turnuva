@@ -690,13 +690,23 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
           </div>
         )}
 
-        {/* Genel Seri Durumu Takım Seçimi - Sadece Admin */}
+        {/* Genel Seri Durumu Takım Seçimi - Accordion (Sadece Admin) */}
         {isAdmin && (
-          <div className="mb-6 bg-slate-900 p-4 rounded-xl border border-slate-800">
-            <h3 className="text-slate-300 font-bold text-xs uppercase mb-3 flex items-center gap-2">
-              <Trophy size={14} /> Genel Seri Durumu Takımları
-            </h3>
-            <p className="text-xs text-slate-400 mb-3">Karşılaşacak 2 takımı seçin</p>
+          <div className="mb-4 bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+            <button 
+              onClick={() => setShowTeamSelection(!showTeamSelection)}
+              className="w-full p-3 flex items-center justify-between text-left hover:bg-slate-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Trophy size={14} className="text-blue-400" />
+                <h3 className="text-slate-300 font-bold text-xs uppercase">Seri Takımları</h3>
+              </div>
+              <ChevronDown size={16} className={`text-slate-400 transition-transform ${showTeamSelection ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showTeamSelection && (
+              <div className="p-4 pt-0 border-t border-slate-800">
+                <p className="text-xs text-slate-400 mb-3">Karşılaşacak 2 takımı seçin</p>
             
             {/* Takım A - Accordion */}
             <div className="mb-3 bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-700/30 rounded-lg overflow-hidden">
@@ -779,6 +789,8 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                 </div>
               )}
             </div>
+          </div>
+            )}
           </div>
         )}
 
