@@ -2819,10 +2819,11 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                             </div>
                           );
                         })
-                      }</div>
+                      }
                     </div>
-                   );
-                  })
+                  </div>
+                 );
+                })
                 ) : (
                   // Normal Kullanıcı Görünümü - Maçkolik Tarzı Minimal
                   <div className="bg-white rounded-xl overflow-hidden shadow-sm">
