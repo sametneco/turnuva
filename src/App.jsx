@@ -2670,19 +2670,21 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
               <div className="text-center py-10 text-slate-500">Turnuva henüz başlamadı.</div>
             ) : (
               <div className="space-y-6">
-                {Array.from(new Set(matches.map(m => m.round))).sort((a,b) => a-b).map(round => {
-                   const roundMatches = matches.filter(m => m.round === round);
-                   const isFinished = roundMatches.every(m => m.played);
-                   return (
-                    <div key={round} className="space-y-4">
-                      {/* Premier League Style Header */}
-                      <div>
-                        <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-500 to-purple-600">
-                          {round}. Hafta <span className="font-normal">Sonuçları</span>
-                        </h2>
-                      </div>
+                {isAdmin ? (
+                  // Admin Görünümü - Mevcut görünüm
+                  Array.from(new Set(matches.map(m => m.round))).sort((a,b) => a-b).map(round => {
+                    const roundMatches = matches.filter(m => m.round === round);
+                    const isFinished = roundMatches.every(m => m.played);
+                    return (
+                      <div key={round} className="space-y-4">
+                        {/* Premier League Style Header */}
+                        <div>
+                          <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-500 to-purple-600">
+                            {round}. Hafta <span className="font-normal">Sonuçları</span>
+                          </h2>
+                        </div>
 
-                      <div className="space-y-3">
+                        <div className="space-y-3">
                         {roundMatches.map(match => {
                           const h = players.find(p => p.id === match.home);
                           const a = players.find(p => p.id === match.away);
@@ -2816,11 +2818,76 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                               </div>
                             </div>
                           );
-                        })}
-                      </div>
+                        })
+                      }</div>
                     </div>
                    );
-                })}
+                  })
+                ) : (
+                  // Normal Kullanıcı Görünümü - Minimal ve Kompakt
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                    <div className="p-3 border-b border-slate-800">
+                      <h3 className="text-sm font-bold text-white">Maç Geçmişi</h3>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Son 5 maç</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/50">
+                      {matches
+                        .filter(m => m.played)
+                        .sort((a, b) => new Date(b.updatedAt || b.playedAt || 0) - new Date(a.updatedAt || a.playedAt || 0))
+                        .slice(0, 5)
+                        .map(match => {
+                          const h = players.find(p => p.id === match.home);
+                          const a = players.find(p => p.id === match.away);
+                          const homeScore = parseInt(match.homeScore);
+                          const awayScore = parseInt(match.awayScore);
+                          const homeWon = homeScore > awayScore;
+                          const awayWon = awayScore > homeScore;
+                                  
+                          return (
+                            <div key={match.id} className="p-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
+                              {/* Sol - Ev Sahibi */}
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                  homeWon ? 'bg-emerald-500/20 text-emerald-400' : awayWon ? 'bg-slate-700 text-slate-400' : 'bg-slate-700 text-slate-300'
+                                }`}>
+                                  {h?.name.charAt(0) || '?'}
+                                </div>
+                                <span className={`text-xs font-bold truncate ${
+                                  homeWon ? 'text-white' : 'text-slate-400'
+                                }`}>{h?.name || 'Bilinmeyen'}</span>
+                              </div>
+                                      
+                              {/* Orta - Skor */}
+                              <div className="flex items-center gap-2 px-3 flex-shrink-0">
+                                <span className={`text-sm font-black ${
+                                  homeWon ? 'text-emerald-400' : awayWon ? 'text-slate-500' : 'text-slate-300'
+                                }`}>{homeScore}</span>
+                                <span className="text-slate-600 text-xs">-</span>
+                                <span className={`text-sm font-black ${
+                                  awayWon ? 'text-emerald-400' : homeWon ? 'text-slate-500' : 'text-slate-300'
+                                }`}>{awayScore}</span>
+                              </div>
+                                      
+                              {/* Sağ - Deplasman */}
+                              <div className="flex items-center gap-2 flex-1 min-w-0 flex-row-reverse">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                  awayWon ? 'bg-emerald-500/20 text-emerald-400' : homeWon ? 'bg-slate-700 text-slate-400' : 'bg-slate-700 text-slate-300'
+                                }`}>
+                                  {a?.name.charAt(0) || '?'}
+                                </div>
+                                <span className={`text-xs font-bold truncate text-right ${
+                                  awayWon ? 'text-white' : 'text-slate-400'
+                                }`}>{a?.name || 'Bilinmeyen'}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {matches.filter(m => m.played).length === 0 && (
+                        <div className="p-6 text-center text-slate-500 text-sm">Henüz maç oynanmadı</div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
