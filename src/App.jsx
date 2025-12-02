@@ -45,7 +45,8 @@ import {
   Target,
   Award,
   Flame,
-  Sparkles
+  Sparkles,
+  ChevronDown
 } from 'lucide-react';
 
 // --- Firebase Init ---
@@ -590,6 +591,10 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
   const [teamBPlayer1, setTeamBPlayer1] = useState('');
   const [teamBPlayer2, setTeamBPlayer2] = useState('');
   
+  // Accordion state'leri
+  const [showTeamSelection, setShowTeamSelection] = useState(false);
+  const [showChampionships, setShowChampionships] = useState(false);
+  
   // Genel seri durumu için seçilen takımlar - Firebase'den gelen veriyi kullan
   const seriesTeamAPlayer1 = seriesTeams?.teamA?.player1 || '';
   const seriesTeamAPlayer2 = seriesTeams?.teamA?.player2 || '';
@@ -747,7 +752,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
           </div>
         )}
 
-        {/* Şampiyonluk Tablosu */}
+        {/* Şampiyonluk Tablosu - Accordion */}
         {(() => {
           // Seçilen takımlardan isim oluştur
           const teamAName = seriesTeams?.teamA?.player1 && seriesTeams?.teamA?.player2 
@@ -770,12 +775,21 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
           const maxCount = teamChampionships.length > 0 ? teamChampionships[0][1] : 0;
           
           return (
-            <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-amber-900/20 to-yellow-800/30 border-2 border-yellow-600/40 rounded-lg p-3 shadow-lg shadow-yellow-900/20">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Trophy size={14} className="text-yellow-400 animate-pulse" />
-                <h3 className="text-xs font-bold text-yellow-300 uppercase tracking-wide">Genel Seri Durumu</h3>
-              </div>
-              <div className="space-y-1.5">
+            <div className="mb-4 bg-gradient-to-br from-yellow-900/30 via-amber-900/20 to-yellow-800/30 border-2 border-yellow-600/40 rounded-xl overflow-hidden shadow-lg shadow-yellow-900/20">
+              <button 
+                onClick={() => setShowChampionships(!showChampionships)}
+                className="w-full p-3 flex items-center justify-between text-left hover:bg-yellow-900/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Trophy size={14} className="text-yellow-400 animate-pulse" />
+                  <h3 className="text-xs font-bold text-yellow-300 uppercase tracking-wide">Genel Seri Durumu</h3>
+                </div>
+                <ChevronDown size={16} className={`text-yellow-400 transition-transform ${showChampionships ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showChampionships && (
+                <div className="p-3 pt-0 border-t border-yellow-700/30">
+                  <div className="space-y-1.5">
                 {teamChampionships.map(([teamName, count], index) => {
                   // "SAMET & BURAK" -> "SAMET | BURAK"
                   const displayName = teamName.replace(' & ', ' | ');
@@ -845,12 +859,14 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           }`}>
                             {count}
                           </div>
-                        )}
+                        )}  
                       </div>
                     </div>
                   );
                 })}
               </div>
+                </div>
+              )}
             </div>
           );
         })()}
