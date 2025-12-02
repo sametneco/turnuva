@@ -580,9 +580,8 @@ function TournamentCard({ tournament, onSelect, isAdmin, handleDeleteClick, db, 
 // LOBBY VIEW
 // ==========================================
 function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships, resetAllChampionships, seriesTeams, updateSeriesTeams }) {
-  const [newName, setNewName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [createStep, setCreateStep] = useState(1); // 1: Ad, 2: Mod Seçimi, 3: Takım Kurulumu
+  const [createStep, setCreateStep] = useState(1); // 1: Mod Seçimi, 2: Takım Kurulumu
   const [selectedMode, setSelectedMode] = useState('individual');
   
   // Takım modu için state
@@ -602,7 +601,6 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
   const resetCreateForm = () => {
     setShowCreate(false);
     setCreateStep(1);
-    setNewName('');
     setSelectedMode('individual');
     setTeamAPlayer1('');
     setTeamAPlayer2('');
@@ -610,9 +608,20 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
     setTeamBPlayer2('');
   };
   
+  // Otomatik turnuva adı oluştur (örn: "2 ARALIK TURNUVA")
+  const generateTournamentName = () => {
+    const months = ['OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'];
+    const now = new Date();
+    const day = now.getDate();
+    const month = months[now.getMonth()];
+    return `${day} ${month} TURNUVA`;
+  };
+  
   const handleCreateSubmit = () => {
+    const autoName = generateTournamentName();
+    
     if (selectedMode === 'individual') {
-      createTournament(newName, 'individual', null);
+      createTournament(autoName, 'individual', null);
       resetCreateForm();
     } else {
       // Takım modu - validasyon
@@ -643,7 +652,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
         extended: false // Başlangıçta uzatılmamış
       };
       
-      createTournament(newName, 'team', teamConfig);
+      createTournament(autoName, 'team', teamConfig);
       resetCreateForm();
     }
   };
@@ -854,42 +863,10 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
               </button>
             ) : (
               <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 animate-in fade-in zoom-in-95">
-                {/* Step 1: Turnuva Adı */}
+                {/* Step 1: Mod Seçimi */}
                 {createStep === 1 && (
                   <>
-                    <h3 className="text-sm font-bold text-white mb-3">Turnuva Adı</h3>
-                    <input 
-                      type="text" 
-                      placeholder="Örn: OFİS LİGİ" 
-                      value={newName} 
-                      onChange={(e) => setNewName(e.target.value.toUpperCase())} 
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white mb-3 focus:border-emerald-500 outline-none font-bold" 
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={resetCreateForm} className="flex-1 bg-slate-800 text-slate-300 py-2 rounded-lg text-sm">İptal</button>
-                      <button 
-                        onClick={() => {
-                          if (!newName.trim()) {
-                            alert('Lütfen turnuva adı girin!');
-                            return;
-                          }
-                          setCreateStep(2);
-                        }} 
-                        className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm"
-                      >
-                        İleri →
-                      </button>
-                    </div>
-                  </>
-                )}
-                
-                {/* Step 2: Mod Seçimi */}
-                {createStep === 2 && (
-                  <>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-bold text-white">Turnuva Modu</h3>
-                      <button onClick={() => setCreateStep(1)} className="text-xs text-slate-400 hover:text-white">← Geri</button>
-                    </div>
+                    <h3 className="text-sm font-bold text-white mb-4">Turnuva Modu</h3>
                     
                     <div className="space-y-3 mb-4">
                       <button
@@ -942,7 +919,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           if (selectedMode === 'individual') {
                             handleCreateSubmit();
                           } else {
-                            setCreateStep(3);
+                            setCreateStep(2);
                           }
                         }} 
                         className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm"
@@ -953,12 +930,12 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                   </>
                 )}
                 
-                {/* Step 3: Takım Kurulumu */}
-                {createStep === 3 && selectedMode === 'team' && (
+                {/* Step 2: Takım Kurulumu */}
+                {createStep === 2 && selectedMode === 'team' && (
                   <>
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-bold text-white">Takımları Kur</h3>
-                      <button onClick={() => setCreateStep(2)} className="text-xs text-slate-400 hover:text-white">← Geri</button>
+                      <button onClick={() => setCreateStep(1)} className="text-xs text-slate-400 hover:text-white">← Geri</button>
                     </div>
                     
                     {/* Takım A */}
