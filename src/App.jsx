@@ -89,6 +89,7 @@ export default function App() {
   const [tournamentData, setTournamentData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [championships, setChampionships] = useState({});
+  const [seriesTeams, setSeriesTeams] = useState({ teamA: {}, teamB: {} }); // Seri takımları
 
   // --- Confirmation Modal State ---
   const [confirmModal, setConfirmModal] = useState({
@@ -187,6 +188,23 @@ export default function App() {
     });
     return () => unsub();
   }, [user, isAdmin]);
+
+  // --- Series Teams Sync ---
+  useEffect(() => {
+    if (!user) return;
+    const seriesRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'seriesTeams');
+    const unsub = onSnapshot(seriesRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setSeriesTeams(docSnap.data());
+      } else {
+        setSeriesTeams({ teamA: {}, teamB: {} });
+      }
+    }, (err) => { 
+        console.error("Series teams hatası:", err); 
+        setSeriesTeams({ teamA: {}, teamB: {} }); 
+    });
+    return () => unsub();
+  }, [user]);
 
   // --- Tournament Data Sync ---
   useEffect(() => {
@@ -369,6 +387,20 @@ export default function App() {
     }
   };
 
+  const updateSeriesTeams = async (teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2) => {
+    if (!isAdmin) return;
+    try {
+      const seriesRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'seriesTeams');
+      await setDoc(seriesRef, {
+        teamA: { player1: teamAPlayer1, player2: teamAPlayer2 },
+        teamB: { player1: teamBPlayer1, player2: teamBPlayer2 }
+      });
+      console.log('Seri takımları güncellendi');
+    } catch (e) {
+      console.error('Seri takımları güncelleme hatası:', e);
+    }
+  };
+
   if (view === 'lobby') {
     return (
       <>
@@ -380,6 +412,8 @@ export default function App() {
           championships={championships}
           updateChampionships={updateChampionships}
           resetAllChampionships={resetAllChampionships}
+          seriesTeams={seriesTeams}
+          updateSeriesTeams={updateSeriesTeams}
         />
         <CustomConfirmModal {...confirmModal} onClose={closeConfirmModal} />
       </>
@@ -460,7 +494,7 @@ function CustomConfirmModal({ isOpen, title, message, onConfirm, onClose }) {
 // ==========================================
 // LOBBY VIEW
 // ==========================================
-function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships, resetAllChampionships }) {
+function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships, resetAllChampionships, seriesTeams, updateSeriesTeams }) {
   const [newName, setNewName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [createStep, setCreateStep] = useState(1); // 1: Ad, 2: Mod Seçimi, 3: Takım Kurulumu
@@ -471,6 +505,12 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
   const [teamAPlayer2, setTeamAPlayer2] = useState('');
   const [teamBPlayer1, setTeamBPlayer1] = useState('');
   const [teamBPlayer2, setTeamBPlayer2] = useState('');
+  
+  // Genel seri durumu için seçilen takımlar - Firebase'den gelen veriyi kullan
+  const seriesTeamAPlayer1 = seriesTeams?.teamA?.player1 || '';
+  const seriesTeamAPlayer2 = seriesTeams?.teamA?.player2 || '';
+  const seriesTeamBPlayer1 = seriesTeams?.teamB?.player1 || '';
+  const seriesTeamBPlayer2 = seriesTeams?.teamB?.player2 || '';
   
   const PLAYERS = ['BURAK', 'HASAN', 'SAMET', 'ERHAN'];
   
@@ -549,34 +589,90 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
           </div>
         )}
 
-        {/* Şampiyonluk Tablosu - Admin ise her zaman göster, değilse sadece data varsa */}
-        {(isAdmin || Object.entries(championships).filter(([name]) => name.includes(' & ')).length > 0) && (() => {
-          // Registry'den tüm takım modundaki turnuvaları bul
-          const allTeams = new Set();
-          registry.forEach(tournament => {
-            if (tournament.mode === 'team') {
-              // Turnuva adından takımları çıkar (varsayılan format kullanılıyorsa)
-              // Gerçek takım adlarını almak için Firebase'den çekmemiz gerekir ama
-              // Şimdilik championships'teki takımları kullanalım
-            }
-          });
+        {/* Genel Seri Durumu Takım Seçimi - Sadece Admin */}
+        {isAdmin && (
+          <div className="mb-6 bg-slate-900 p-4 rounded-xl border border-slate-800">
+            <h3 className="text-slate-300 font-bold text-xs uppercase mb-3 flex items-center gap-2">
+              <Trophy size={14} /> Genel Seri Durumu Takımları
+            </h3>
+            <p className="text-xs text-slate-400 mb-3">Karşılaşacak 2 takımı seçin</p>
+            
+            {/* Takım A */}
+            <div className="mb-4 p-3 bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-700/30 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy size={12} className="text-blue-400" />
+                <h4 className="text-xs font-bold text-blue-300 uppercase">Takım A</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select 
+                  value={seriesTeamAPlayer1} 
+                  onChange={(e) => updateSeriesTeams(e.target.value, seriesTeamAPlayer2, seriesTeamBPlayer1, seriesTeamBPlayer2)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-blue-500 outline-none"
+                >
+                  <option value="">Oyuncu 1</option>
+                  {PLAYERS.filter(p => p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer1 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <select 
+                  value={seriesTeamAPlayer2} 
+                  onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, e.target.value, seriesTeamBPlayer1, seriesTeamBPlayer2)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-blue-500 outline-none"
+                >
+                  <option value="">Oyuncu 2</option>
+                  {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamBPlayer1 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+            
+            <div className="text-center text-slate-500 text-xs mb-4 font-bold">VS</div>
+            
+            {/* Takım B */}
+            <div className="mb-3 p-3 bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-700/30 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy size={12} className="text-red-400" />
+                <h4 className="text-xs font-bold text-red-300 uppercase">Takım B</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select 
+                  value={seriesTeamBPlayer1} 
+                  onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, seriesTeamAPlayer2, e.target.value, seriesTeamBPlayer2)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-red-500 outline-none"
+                >
+                  <option value="">Oyuncu 1</option>
+                  {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <select 
+                  value={seriesTeamBPlayer2} 
+                  onChange={(e) => updateSeriesTeams(seriesTeamAPlayer1, seriesTeamAPlayer2, seriesTeamBPlayer1, e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs focus:border-red-500 outline-none"
+                >
+                  <option value="">Oyuncu 2</option>
+                  {PLAYERS.filter(p => p !== seriesTeamAPlayer1 && p !== seriesTeamAPlayer2 && p !== seriesTeamBPlayer1).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Şampiyonluk Tablosu */}
+        {(() => {
+          // Seçilen takımlardan isim oluştur
+          const teamAName = seriesTeams?.teamA?.player1 && seriesTeams?.teamA?.player2 
+            ? [seriesTeams.teamA.player1, seriesTeams.teamA.player2].sort().join(' & ')
+            : null;
+          const teamBName = seriesTeams?.teamB?.player1 && seriesTeams?.teamB?.player2
+            ? [seriesTeams.teamB.player1, seriesTeams.teamB.player2].sort().join(' & ')
+            : null;
           
-          // Tüm benzersiz takımlar (PLAYERS kombinasyonları)
-          const PLAYERS = ['BURAK', 'HASAN', 'SAMET', 'ERHAN'];
-          const allPossibleTeams = [];
-          for (let i = 0; i < PLAYERS.length; i++) {
-            for (let j = i + 1; j < PLAYERS.length; j++) {
-              const teamName = `${PLAYERS[i]} & ${PLAYERS[j]}`;
-              allPossibleTeams.push(teamName);
-            }
-          }
+          const selectedTeams = [];
+          if (teamAName) selectedTeams.push([teamAName, championships[teamAName] || 0]);
+          if (teamBName) selectedTeams.push([teamBName, championships[teamBName] || 0]);
           
-          // Mevcut şampiyonluklarla birleştir
-          const teamChampionships = allPossibleTeams.map(teamName => {
-            const count = championships[teamName] || 0;
-            return [teamName, count];
-          }).sort((a, b) => b[1] - a[1]);
+          // Normal kullanıcı için: En az 1 takımın 0'dan büyük olması gerekir
+          // Admin için: Takımlar seçiliyse her zaman göster
+          if (selectedTeams.length === 0) return null;
+          if (!isAdmin && selectedTeams.every(([_, count]) => count === 0)) return null;
           
+          const teamChampionships = selectedTeams.sort((a, b) => b[1] - a[1]);
           const maxCount = teamChampionships.length > 0 ? teamChampionships[0][1] : 0;
           
           return (
@@ -634,7 +730,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           </div>
                         </div>
                         
-                        {/* Score Badge / Dropdown */}
+                        {/* Dropdown (Admin) veya Score Badge (Normal User) */}
                         {isAdmin ? (
                           <select
                             value={count}
@@ -646,37 +742,19 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                             ))}
                           </select>
                         ) : (
-                          count > 0 && (
-                            <div className={`px-4 py-2 rounded-lg font-black text-xl ${
-                              isLeader 
-                                ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
-                                : 'bg-slate-700/50 text-slate-300'
-                            }`}>
-                              {count}
-                            </div>
-                          )
+                          <div className={`px-4 py-2 rounded-lg font-black text-xl ${
+                            isLeader 
+                              ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
+                              : 'bg-slate-700/50 text-slate-300'
+                          }`}>
+                            {count}
+                          </div>
                         )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-              
-              {/* Reset Butonu - Sadece admin için */}
-              {isAdmin && (
-                <div className="mt-4 pt-4 border-t border-yellow-700/20">
-                  <button 
-                    onClick={() => {
-                      if (window.confirm('TÜM Şampiyonluklar sıfırlanacak! Emin misiniz?')) {
-                        resetAllChampionships();
-                      }
-                    }}
-                    className="w-full flex items-center justify-center gap-2 text-red-400 hover:bg-red-900/20 py-2 rounded-lg text-xs font-bold transition-colors border border-red-900/30 hover:border-red-700/50"
-                  >
-                    <Trash2 size={14} /> Tüm Şampiyonlukları Sıfırla
-                  </button>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -3803,44 +3881,56 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                       {/* Skor veya Giriş */}
                       <div className="flex-1 flex items-center justify-center gap-4">
                         {isEditMode ? (
-                          <div className="flex items-center gap-2">
-                            <select 
-                              value={tempHomeScore}
-                              onChange={(e) => setTempHomeScore(e.target.value)}
-                              className="w-20 bg-slate-950 border border-slate-700 rounded-lg p-2 text-center text-white font-bold"
-                            >
-                              <option value="">-</option>
-                              {[...Array(14)].map((_, i) => (
-                                <option key={i} value={i}>{i}</option>
-                              ))}
-                            </select>
-                            <span className="text-slate-500">-</span>
-                            <select 
-                              value={tempAwayScore}
-                              onChange={(e) => setTempAwayScore(e.target.value)}
-                              className="w-20 bg-slate-950 border border-slate-700 rounded-lg p-2 text-center text-white font-bold"
-                            >
-                              <option value="">-</option>
-                              {[...Array(14)].map((_, i) => (
-                                <option key={i} value={i}>{i}</option>
-                              ))}
-                            </select>
-                            <button 
-                              onClick={() => handleScoreSubmit(match.id)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm"
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setActiveMatchInput(null);
-                                setTempHomeScore('');
-                                setTempAwayScore('');
-                              }}
-                              className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm"
-                            >
-                              <X size={16} />
-                            </button>
+                          <div className="flex flex-col gap-3 w-full max-w-xs">
+                            {/* Home Team Score */}
+                            <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-500/30 rounded-lg p-2">
+                              <div className="flex-1 text-xs text-blue-300 font-bold">{teamA.name}</div>
+                              <select 
+                                value={tempHomeScore}
+                                onChange={(e) => setTempHomeScore(e.target.value)}
+                                className="w-16 bg-slate-950 border border-blue-500 rounded-lg p-2 text-center text-white font-bold focus:border-blue-400 outline-none"
+                              >
+                                <option value="">-</option>
+                                {[...Array(14)].map((_, i) => (
+                                  <option key={i} value={i}>{i}</option>
+                                ))}
+                              </select>
+                            </div>
+                            
+                            {/* Away Team Score */}
+                            <div className="flex items-center gap-2 bg-red-900/30 border border-red-500/30 rounded-lg p-2">
+                              <div className="flex-1 text-xs text-red-300 font-bold">{teamB.name}</div>
+                              <select 
+                                value={tempAwayScore}
+                                onChange={(e) => setTempAwayScore(e.target.value)}
+                                className="w-16 bg-slate-950 border border-red-500 rounded-lg p-2 text-center text-white font-bold focus:border-red-400 outline-none"
+                              >
+                                <option value="">-</option>
+                                {[...Array(14)].map((_, i) => (
+                                  <option key={i} value={i}>{i}</option>
+                                ))}
+                              </select>
+                            </div>
+                            
+                            {/* Butonlar */}
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => handleScoreSubmit(match.id)}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-bold"
+                              >
+                                <Check size={16} className="inline" /> Kaydet
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setActiveMatchInput(null);
+                                  setTempHomeScore('');
+                                  setTempAwayScore('');
+                                }}
+                                className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <div className="flex items-center gap-4">
@@ -3894,13 +3984,19 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                     </div>
                     
                     {/* Kazanan Göstergesi */}
-                    {match.played && (homeWon || awayWon) && (
+                    {match.played && (
                       <div className="mt-3 text-center">
-                        <div className={`inline-block px-4 py-1 rounded-full text-xs font-bold ${
-                          homeWon ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                        }`}>
-                          {homeWon ? `${teamA.name} KAZANDI` : `${teamB.name} KAZANDI`}
-                        </div>
+                        {homeWon || awayWon ? (
+                          <div className={`inline-block px-4 py-1 rounded-full text-xs font-bold ${
+                            homeWon ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                          }`}>
+                            {homeWon ? `${teamA.name} KAZANDI` : `${teamB.name} KAZANDI`}
+                          </div>
+                        ) : (
+                          <div className="inline-block px-4 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                            BERABERİKLİK
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
