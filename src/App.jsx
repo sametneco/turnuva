@@ -4095,38 +4095,40 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
         </div>
         
         {/* MAÇ GEÇMİŞİ */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-white">Maç Geçmişi</h3>
-            {isAdmin && !teamSeriesStats?.seriesWon && (
-              <button 
-                onClick={handleAddMatch}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
-              >
-                <Plus size={16} /> Yeni Maç
-              </button>
-            )}
-          </div>
-          
-          <div className="space-y-3">
-            {matches.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">Henüz maç eklenmedi</div>
-            ) : (
-              matches.slice().reverse().map((match, idx) => {
-                const isEditMode = activeMatchInput === match.id;
-                const homeWon = match.played && parseInt(match.homeScore) > parseInt(match.awayScore);
-                const awayWon = match.played && parseInt(match.awayScore) > parseInt(match.homeScore);
-                
-                return (
-                  <div 
-                    key={match.id}
-                    className={`bg-slate-800/50 border rounded-xl overflow-hidden ${
-                      match.played 
-                        ? 'border-slate-700' 
-                        : 'border-yellow-500/30 bg-yellow-900/10'
-                    }`}
-                  >
-                    {/* Maç Başlığı */}
+        {isAdmin ? (
+          // Admin Görünümü - Mevcut detaylı görünüm
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Maç Geçmişi</h3>
+              {!teamSeriesStats?.seriesWon && (
+                <button 
+                  onClick={handleAddMatch}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+                >
+                  <Plus size={16} /> Yeni Maç
+                </button>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              {matches.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">Henüz maç eklenmedi</div>
+              ) : (
+                matches.slice().reverse().map((match, idx) => {
+                  const isEditMode = activeMatchInput === match.id;
+                  const homeWon = match.played && parseInt(match.homeScore) > parseInt(match.awayScore);
+                  const awayWon = match.played && parseInt(match.awayScore) > parseInt(match.homeScore);
+                  
+                  return (
+                    <div 
+                      key={match.id}
+                      className={`bg-slate-800/50 border rounded-xl overflow-hidden ${
+                        match.played 
+                          ? 'border-slate-700' 
+                          : 'border-yellow-500/30 bg-yellow-900/10'
+                      }`}
+                    >
+// ... existing code ...
                     <div className="bg-slate-900/80 px-4 py-2 border-b border-slate-700/50">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -4275,11 +4277,64 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                     )}
                     </div>
                   </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          // Normal Kullanıcı Görünümü - Maçkolik Tarzı Minimal
+          <div className="bg-white rounded-xl overflow-hidden shadow-sm">
+            <div className="px-4 py-2 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Maç Sonuçları</h3>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {matches.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-sm">Henüz maç eklenmedi</div>
+              ) : (
+                matches
+                  .filter(m => m.played)
+                  .slice().reverse()
+                  .slice(0, 5)
+                  .map(match => {
+                    const homeScore = parseInt(match.homeScore);
+                    const awayScore = parseInt(match.awayScore);
+                    const homeWon = homeScore > awayScore;
+                    const awayWon = awayScore > homeScore;
+                    
+                    return (
+                      <div key={match.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                        {/* Sol - Takım A */}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className={`text-sm font-semibold truncate ${
+                            homeWon ? 'text-slate-900' : 'text-slate-400'
+                          }`}>{teamA.name}</span>
+                        </div>
+                        
+                        {/* Orta - Skor */}
+                        <div className="flex items-center gap-1.5 px-3 flex-shrink-0">
+                          <span className={`text-base font-black ${
+                            homeWon ? 'text-slate-900' : 'text-slate-400'
+                          }`}>{homeScore}</span>
+                          <span className="text-slate-300 text-xs font-bold">-</span>
+                          <span className={`text-base font-black ${
+                            awayWon ? 'text-slate-900' : 'text-slate-400'
+                          }`}>{awayScore}</span>
+                        </div>
+                        
+                        {/* Sağ - Takım B */}
+                        <div className="flex items-center gap-2 flex-1 min-w-0 flex-row-reverse">
+                          <span className={`text-sm font-semibold truncate text-right ${
+                            awayWon ? 'text-slate-900' : 'text-slate-400'
+                          }`}>{teamB.name}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        )}
       </div>
       
       <style>{`
