@@ -4148,7 +4148,6 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                           : 'border-yellow-500/30 bg-yellow-900/10'
                       }`}
                     >
-// ... existing code ...
                     <div className="bg-slate-900/80 px-4 py-2 border-b border-slate-700/50">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
