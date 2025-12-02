@@ -152,12 +152,33 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
-    const unsub = onSnapshot(champRef, (docSnap) => {
+    const unsub = onSnapshot(champRef, async (docSnap) => {
       console.log('Championships snapshot:', docSnap.exists(), docSnap.data());
       if (docSnap.exists()) {
         const champData = docSnap.data().players || {};
         console.log('Championships data:', champData);
-        setChampionships(champData);
+        
+        // Bireysel oyuncu şampiyonluklarını otomatik temizle
+        const needsCleaning = Object.keys(champData).some(key => !key.includes(' & '));
+        console.log('Temizlik kontrolü:', { champData, needsCleaning, keys: Object.keys(champData) });
+        if (needsCleaning && isAdmin) {
+          console.log('Bireysel şampiyonluklar tespit edildi, temizleniyor...');
+          const cleanedData = {};
+          Object.keys(champData).forEach(key => {
+            // Sadece takım isimlerini (" & " içeren) koru
+            if (key.includes(' & ') && champData[key] > 0) {
+              cleanedData[key] = champData[key];
+              console.log('Korunuĝor:', key, champData[key]);
+            } else {
+              console.log('Siliniyor:', key, champData[key]);
+            }
+          });
+          await setDoc(champRef, { players: cleanedData });
+          console.log('Temizlenmiş şampiyonluklar:', cleanedData);
+          setChampionships(cleanedData);
+        } else {
+          setChampionships(champData);
+        }
       }
       else setChampionships({});
     }, (err) => { 
@@ -165,7 +186,7 @@ export default function App() {
         setChampionships({}); 
     });
     return () => unsub();
-  }, [user]);
+  }, [user, isAdmin]);
 
   // --- Tournament Data Sync ---
   useEffect(() => {
@@ -249,6 +270,88 @@ export default function App() {
   const deleteTournament = useCallback(async (id) => {
     if (!isAdmin) return;
     try {
+        console.log('=== TURNUVA SİLME BAŞLADI ===', id);
+        // 0. Turnuva verisini oku (şampiyonluk düşürmek için)
+        const tournamentDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', `t_${id}`));
+        console.log('Turnuva datanı okudum:', tournamentDoc.exists());
+        
+        if (tournamentDoc.exists()) {
+          const tournamentData = tournamentDoc.data();
+          console.log('Turnuva Data:', tournamentData);
+          console.log('Mode:', tournamentData.settings?.mode);
+          console.log('TeamConfig:', tournamentData.settings?.teamConfig);
+          
+          const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
+          const docSnap = await getDoc(champRef);
+          
+          if (docSnap.exists()) {
+            const currentData = docSnap.data().players || {};
+            console.log('Mevcut şampiyonluklar:', currentData);
+            const updatedChampionships = { ...currentData };
+            
+            // Eğer takım modu ve seri tamamlanmışsa
+            if (tournamentData.settings?.mode === 'team' && tournamentData.settings?.teamConfig) {
+              const { matches, settings } = tournamentData;
+              const teamConfig = settings.teamConfig;
+              
+              // Kazananı hesapla
+              let teamAWins = 0;
+              let teamBWins = 0;
+              matches.forEach(match => {
+                if (match.played) {
+                  const hScore = parseInt(match.homeScore);
+                  const aScore = parseInt(match.awayScore);
+                  if (!isNaN(hScore) && !isNaN(aScore)) {
+                    if (hScore > aScore) teamAWins++;
+                    else if (aScore > hScore) teamBWins++;
+                  }
+                }
+              });
+              
+              console.log('Takım skorları:', { teamAWins, teamBWins });
+              
+              const targetWins = teamConfig.extended ? 6 : 5;
+              const seriesWon = teamAWins >= targetWins || teamBWins >= targetWins;
+              
+              console.log('Seri bitti mi?:', seriesWon, 'Target:', targetWins);
+              
+              if (seriesWon) {
+                const winner = teamAWins >= targetWins ? 'teamA' : 'teamB';
+                const winnerTeam = winner === 'teamA' ? teamConfig.teamA : teamConfig.teamB;
+                
+                // Kazanan takımın adından şampiyonluk düşür
+                const teamName = winnerTeam.name; // Örn: "SAMET & BURAK"
+                console.log('Kazanan takım:', teamName, 'Mevcut sayı:', updatedChampionships[teamName]);
+                
+                if (updatedChampionships[teamName] > 0) {
+                  updatedChampionships[teamName]--;
+                  console.log('Yeni sayı:', updatedChampionships[teamName]);
+                }
+                // Eğer 0 olursa, key'i sil
+                if (updatedChampionships[teamName] === 0) {
+                  delete updatedChampionships[teamName];
+                  console.log('0 oldu, silindi');
+                }
+              }
+            }
+            
+            // Bireysel oyuncu şampiyonluklarını temizle (takım ismi içermeyenleri)
+            Object.keys(updatedChampionships).forEach(key => {
+              if (!key.includes(' & ')) {
+                delete updatedChampionships[key];
+              }
+              // 0 olanları da temizle
+              if (updatedChampionships[key] === 0) {
+                delete updatedChampionships[key];
+              }
+            });
+            
+            console.log('Güncellenecek şampiyonluklar:', updatedChampionships);
+            await setDoc(champRef, { players: updatedChampionships });
+            console.log('Şampiyonluklar turnuva silinirken güncellendi:', updatedChampionships);
+          }
+        }
+        
         // 1. Registry'den sil
         const newRegistry = registry.filter(t => t.id !== id);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'registry'), { list: newRegistry });
@@ -303,8 +406,8 @@ export default function App() {
     else alert('Hatalı PIN!'); // Simple alert is fine for non-critical UI feedback
   };
 
-  const updateChampionships = async (playerName, count) => {
-    console.log('updateChampionships çağrıldı:', { playerName, count, isAdmin });
+  const updateChampionships = async (playerName) => {
+    console.log('updateChampionships çağrıldı:', { playerName, isAdmin });
     if (!isAdmin) {
       console.log('Admin değil, işlem iptal edildi');
       return;
@@ -316,16 +419,29 @@ export default function App() {
       const docSnap = await getDoc(champRef);
       const currentData = docSnap.exists() ? docSnap.data().players || {} : {};
       
-      const newChampionships = {...currentData, [playerName]: count};
+      // Mevcut sayıya +1 ekle
+      const currentCount = currentData[playerName] || 0;
+      const newChampionships = {...currentData, [playerName]: currentCount + 1};
       console.log('Mevcut data:', currentData);
       console.log('Yeni championships:', newChampionships);
       
       // Dökümanı oluştur veya güncelle
       await setDoc(champRef, { players: newChampionships });
-      console.log(`${playerName} şampiyonluk sayısı güncellendi: ${count}`);
+      console.log(`${playerName} şampiyonluk sayısı güncellendi: ${currentCount} -> ${currentCount + 1}`);
     } catch (e) {
       console.error("Şampiyonluk güncelleme hatası:", e);
       console.error("Hata detayı:", e.code, e.message);
+    }
+  };
+
+  const resetAllChampionships = async () => {
+    if (!isAdmin) return;
+    try {
+      const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
+      await setDoc(champRef, { players: {} });
+      console.log('Tüm şampiyonluklar sıfırlandı');
+    } catch (e) {
+      console.error('Şampiyonluk sıfırlama hatası:', e);
     }
   };
 
@@ -339,6 +455,7 @@ export default function App() {
           onSelect={(id) => { setActiveTournamentId(id); setView('tournament'); }}
           championships={championships}
           updateChampionships={updateChampionships}
+          resetAllChampionships={resetAllChampionships}
         />
         <CustomConfirmModal {...confirmModal} onClose={closeConfirmModal} />
       </>
@@ -419,7 +536,7 @@ function CustomConfirmModal({ isOpen, title, message, onConfirm, onClose }) {
 // ==========================================
 // LOBBY VIEW
 // ==========================================
-function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships }) {
+function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminPin, handleAdminLogin, createTournament, handleDeleteClick, onSelect, championships, updateChampionships, resetAllChampionships }) {
   const [newName, setNewName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [createStep, setCreateStep] = useState(1); // 1: Ad, 2: Mod Seçimi, 3: Takım Kurulumu
@@ -461,14 +578,18 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
         return;
       }
       
+      // Takım isimlerini alfabetik sırala
+      const teamAPlayers = [teamAPlayer1, teamAPlayer2].sort();
+      const teamBPlayers = [teamBPlayer1, teamBPlayer2].sort();
+      
       const teamConfig = {
         teamA: {
-          name: `${teamAPlayer1} & ${teamAPlayer2}`,
-          players: [teamAPlayer1, teamAPlayer2]
+          name: `${teamAPlayers[0]} & ${teamAPlayers[1]}`,
+          players: teamAPlayers
         },
         teamB: {
-          name: `${teamBPlayer1} & ${teamBPlayer2}`,
-          players: [teamBPlayer1, teamBPlayer2]
+          name: `${teamBPlayers[0]} & ${teamBPlayers[1]}`,
+          players: teamBPlayers
         },
         extended: false // Başlangıçta uzatılmamış
       };
@@ -504,30 +625,101 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
           </div>
         )}
 
-        {/* Şampiyonluk Tablosu */}
-        {Object.keys(championships).length > 0 && (
-          <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-yellow-800/20 to-amber-900/30 border border-yellow-700/30 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Trophy size={16} className="text-yellow-400" />
-              <h3 className="text-sm font-bold text-yellow-300 uppercase">Şampiyonluklar</h3>
-            </div>
-            <div className="space-y-2">
-              {PLAYERS.map(name => {
-                const count = championships[name] || 0;
-                if (count === 0) return null;
-                return (
-                  <div key={name} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Trophy size={14} className="text-yellow-500" />
-                      <span className="text-sm font-bold text-white uppercase">{name}</span>
+        {/* Şampiyonluk Tablosu - Sadece takım şampiyonlukları varsa göster */}
+        {Object.entries(championships).filter(([name]) => name.includes(' & ')).length > 0 && (() => {
+          const teamChampionships = Object.entries(championships)
+            .filter(([teamName]) => teamName.includes(' & '))
+            .sort((a, b) => b[1] - a[1]);
+          
+          const maxCount = teamChampionships.length > 0 ? teamChampionships[0][1] : 0;
+          
+          return (
+            <div className="mb-6 bg-gradient-to-br from-yellow-900/30 via-amber-900/20 to-yellow-800/30 border-2 border-yellow-600/40 rounded-2xl p-5 shadow-2xl shadow-yellow-900/20">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy size={18} className="text-yellow-400 animate-pulse" />
+                <h3 className="text-base font-black text-yellow-300 uppercase tracking-wide">Genel Seri Durumu</h3>
+              </div>
+              <div className="space-y-3">
+                {teamChampionships.map(([teamName, count], index) => {
+                  // "SAMET & BURAK" -> "SAMET | BURAK"
+                  const displayName = teamName.replace(' & ', ' | ');
+                  const isLeader = count === maxCount;
+                  const isSecond = index === 1;
+                  
+                  return (
+                    <div 
+                      key={teamName} 
+                      className={`relative overflow-hidden rounded-xl p-4 border-2 transition-all ${
+                        isLeader 
+                          ? 'bg-gradient-to-r from-yellow-600/20 via-yellow-500/10 to-yellow-600/20 border-yellow-500/60 shadow-lg shadow-yellow-500/20'
+                          : isSecond
+                          ? 'bg-gradient-to-r from-slate-800/40 via-slate-700/20 to-slate-800/40 border-slate-600/40'
+                          : 'bg-gradient-to-r from-slate-800/30 via-slate-700/10 to-slate-800/30 border-slate-700/30'
+                      }`}
+                    >
+                      {/* Background Pattern */}
+                      {isLeader && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/5 to-transparent animate-pulse" />
+                      )}
+                      
+                      <div className="relative flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {/* Trophy Icon */}
+                          <div className={`p-2 rounded-lg ${
+                            isLeader 
+                              ? 'bg-yellow-500/30 ring-2 ring-yellow-400/50' 
+                              : 'bg-slate-700/50'
+                          }`}>
+                            <Trophy size={16} className={isLeader ? 'text-yellow-400' : 'text-slate-400'} />
+                          </div>
+                          
+                          {/* Team Name */}
+                          <div>
+                            <div className={`font-black uppercase tracking-wide ${
+                              isLeader 
+                                ? 'text-yellow-300 text-base' 
+                                : 'text-slate-300 text-sm'
+                            }`}>
+                              {displayName}
+                            </div>
+                            {isLeader && (
+                              <div className="text-[10px] text-yellow-500/80 font-semibold uppercase tracking-wider">Lider</div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Score Badge */}
+                        <div className={`px-4 py-2 rounded-lg font-black text-xl ${
+                          isLeader 
+                            ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
+                            : 'bg-slate-700/50 text-slate-300'
+                        }`}>
+                          {count}
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-lg font-black text-yellow-400">{count}</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              
+              {/* Reset Butonu - Sadece admin için */}
+              {isAdmin && (
+                <div className="mt-4 pt-4 border-t border-yellow-700/20">
+                  <button 
+                    onClick={() => {
+                      if (window.confirm('TÜM Şampiyonluklar sıfırlanacak! Emin misiniz?')) {
+                        resetAllChampionships();
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 text-red-400 hover:bg-red-900/20 py-2 rounded-lg text-xs font-bold transition-colors border border-red-900/30 hover:border-red-700/50"
+                  >
+                    <Trash2 size={14} /> Tüm Şampiyonlukları Sıfırla
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {isAdmin && (
           <div className="mb-6">
@@ -657,7 +849,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-blue-500 outline-none"
                         >
                           <option value="">Oyuncu 1 Seç</option>
-                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                          {PLAYERS.filter(p => p !== teamAPlayer2 && p !== teamBPlayer1 && p !== teamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                         <select 
                           value={teamAPlayer2} 
@@ -665,7 +857,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-blue-500 outline-none"
                         >
                           <option value="">Oyuncu 2 Seç</option>
-                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                          {PLAYERS.filter(p => p !== teamAPlayer1 && p !== teamBPlayer1 && p !== teamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
                     </div>
@@ -685,7 +877,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-red-500 outline-none"
                         >
                           <option value="">Oyuncu 1 Seç</option>
-                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                          {PLAYERS.filter(p => p !== teamAPlayer1 && p !== teamAPlayer2 && p !== teamBPlayer2).map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                         <select 
                           value={teamBPlayer2} 
@@ -693,7 +885,7 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-red-500 outline-none"
                         >
                           <option value="">Oyuncu 2 Seç</option>
-                          {PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                          {PLAYERS.filter(p => p !== teamAPlayer1 && p !== teamAPlayer2 && p !== teamBPlayer1).map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
                     </div>
@@ -2104,6 +2296,9 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
         goBack={goBack}
         saveData={saveData}
         setMatches={setMatches}
+        updateChampionships={updateChampionships}
+        championships={championships}
+        tournamentId={tournamentId}
       />
     );
   }
@@ -2184,17 +2379,6 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                                 <div className="flex items-center gap-3">
                                   <div>
                                     <div className="font-bold text-gray-900 text-base uppercase tracking-wide">{row.name}</div>
-                                    {(() => {
-                                      const champCount = championships && championships[row.name];
-                                      console.log('Yıldız kontrol:', { name: row.name, champCount, championships });
-                                      return champCount > 0 && (
-                                        <div className="flex items-center gap-0.5 mt-0.5">
-                                          {[...Array(champCount)].map((_, i) => (
-                                            <Star key={i} size={10} className="text-yellow-500 fill-yellow-500" />
-                                          ))}
-                                        </div>
-                                      );
-                                    })()}
                                   </div>
                                 </div>
                               </td>
@@ -3193,55 +3377,6 @@ function TournamentView({ data, tournamentId, isAdmin, goBack, saveData, updateS
                       </button>
                     )}
                 </div>
-
-                {/* Şampiyonluk Yönetimi */}
-                <div className="bg-gradient-to-br from-yellow-900/30 via-yellow-800/20 to-amber-900/30 border border-yellow-700/30 rounded-xl p-4">
-                    <h3 className="text-yellow-300 font-bold text-xs uppercase mb-3 flex items-center gap-2">
-                      <Trophy size={14} /> Şampiyonluk Yönetimi
-                    </h3>
-                    <p className="text-xs text-slate-400 mb-3">Her oyuncunun şampiyonluk sayısını seçin</p>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {players.map(p => {
-                        const currentChamp = championships[p.name] || 0;
-                        return (
-                          <div key={p.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-yellow-700/20">
-                            <div className="flex items-center gap-2 flex-1">
-                              <div className="w-8 h-8 rounded-full bg-slate-900 border border-yellow-700/30 flex items-center justify-center font-bold text-yellow-400">{p.name[0]}</div>
-                              <div>
-                                <div className="text-white font-bold text-sm uppercase">{p.name}</div>
-                                <div className="text-yellow-400 text-[10px] flex items-center gap-1 font-medium">
-                                  {currentChamp > 0 && (
-                                    <>
-                                      <Trophy size={8} />
-                                      <span>{currentChamp} Şampiyonluk</span>
-                                    </>
-                                  )}
-                                  {currentChamp === 0 && <span className="text-slate-500">Şampiyonluk yok</span>}
-                                </div>
-                              </div>
-                            </div>
-                            <select
-                              key={`${p.name}-${currentChamp}`}
-                              defaultValue={currentChamp}
-                              onChange={(e) => {
-                                const newValue = parseInt(e.target.value);
-                                console.log('Dropdown değişti:', { player: p.name, newValue, isAdmin });
-                                updateChampionships(p.name, newValue);
-                              }}
-                              className="w-16 bg-slate-950 border-2 border-yellow-600/50 rounded-lg px-2 py-2 text-white text-sm font-bold focus:border-yellow-500 focus:outline-none cursor-pointer"
-                            >
-                              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                                <option key={num} value={num} className="bg-slate-900 text-white font-bold">{num}</option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {players.length === 0 && (
-                      <p className="text-slate-500 text-xs text-center py-4">Önce katılımcı ekleyin</p>
-                    )}
-                </div>
               </>
             )}
           </div>
@@ -3448,13 +3583,29 @@ function AddPlayerForm({ onAdd }) {
 // ==========================================
 // TEAM MODE VIEW (2v2)
 // ==========================================
-function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, saveData, setMatches }) {
+function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, saveData, setMatches, updateChampionships, championships, tournamentId }) {
   const [activeMatchInput, setActiveMatchInput] = useState(null);
   const [tempHomeScore, setTempHomeScore] = useState('');
   const [tempAwayScore, setTempAwayScore] = useState('');
+  const [championshipAdded, setChampionshipAdded] = useState(false);
   
   const teamA = settings.teamConfig.teamA;
   const teamB = settings.teamConfig.teamB;
+  
+  // Seri kazananını şampiyonluklar ekle
+  useEffect(() => {
+    if (teamSeriesStats?.seriesWon && teamSeriesStats?.winner && !championshipAdded) {
+      const winnerTeam = teamSeriesStats.winner === 'teamA' ? teamA : teamB;
+      // Takım adını oluştur (oyuncu isimleriyle)
+      const teamName = winnerTeam.name; // Örn: "SAMET & BURAK"
+      updateChampionships(teamName);
+      setChampionshipAdded(true);
+    }
+    // Eğer seri henüz bitmemişse, championship flag'i sıfırla
+    if (!teamSeriesStats?.seriesWon) {
+      setChampionshipAdded(false);
+    }
+  }, [teamSeriesStats, teamA, teamB, updateChampionships, championshipAdded]);
   
   const handleAddMatch = async () => {
     const newMatch = {
@@ -3626,23 +3777,43 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
                     <Sparkles size={20} className="text-white animate-pulse" />
                   </div>
                 </div>
-                {/* Uzat Butonu */}
-                {isAdmin && !teamSeriesStats.extended && (
-                  <button
-                    onClick={async () => {
-                      const updatedSettings = {
-                        ...settings,
-                        teamConfig: {
-                          ...settings.teamConfig,
-                          extended: true
-                        }
-                      };
-                      await saveData({ players: [], matches, settings: updatedSettings });
-                    }}
-                    className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 mx-auto"
-                  >
-                    <Plus size={16} /> Uzat (6'ya kadar)
-                  </button>
+                {/* Uzat / Geri Al Butonları */}
+                {isAdmin && (
+                  <div className="mt-4 flex justify-center gap-2">
+                    {!teamSeriesStats.extended ? (
+                      <button
+                        onClick={async () => {
+                          const updatedSettings = {
+                            ...settings,
+                            teamConfig: {
+                              ...settings.teamConfig,
+                              extended: true
+                            }
+                          };
+                          await saveData({ players: [], matches, settings: updatedSettings });
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+                      >
+                        <Plus size={16} /> Uzat (6'ya kadar)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          const updatedSettings = {
+                            ...settings,
+                            teamConfig: {
+                              ...settings.teamConfig,
+                              extended: false
+                            }
+                          };
+                          await saveData({ players: [], matches, settings: updatedSettings });
+                        }}
+                        className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+                      >
+                        <X size={16} /> Uzatmayı Geri Al
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
