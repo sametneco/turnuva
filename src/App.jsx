@@ -549,11 +549,33 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
           </div>
         )}
 
-        {/* Şampiyonluk Tablosu - Sadece takım şampiyonlukları varsa göster */}
-        {Object.entries(championships).filter(([name]) => name.includes(' & ')).length > 0 && (() => {
-          const teamChampionships = Object.entries(championships)
-            .filter(([teamName]) => teamName.includes(' & '))
-            .sort((a, b) => b[1] - a[1]);
+        {/* Şampiyonluk Tablosu - Admin ise her zaman göster, değilse sadece data varsa */}
+        {(isAdmin || Object.entries(championships).filter(([name]) => name.includes(' & ')).length > 0) && (() => {
+          // Registry'den tüm takım modundaki turnuvaları bul
+          const allTeams = new Set();
+          registry.forEach(tournament => {
+            if (tournament.mode === 'team') {
+              // Turnuva adından takımları çıkar (varsayılan format kullanılıyorsa)
+              // Gerçek takım adlarını almak için Firebase'den çekmemiz gerekir ama
+              // Şimdilik championships'teki takımları kullanalım
+            }
+          });
+          
+          // Tüm benzersiz takımlar (PLAYERS kombinasyonları)
+          const PLAYERS = ['BURAK', 'HASAN', 'SAMET', 'ERHAN'];
+          const allPossibleTeams = [];
+          for (let i = 0; i < PLAYERS.length; i++) {
+            for (let j = i + 1; j < PLAYERS.length; j++) {
+              const teamName = `${PLAYERS[i]} & ${PLAYERS[j]}`;
+              allPossibleTeams.push(teamName);
+            }
+          }
+          
+          // Mevcut şampiyonluklarla birleştir
+          const teamChampionships = allPossibleTeams.map(teamName => {
+            const count = championships[teamName] || 0;
+            return [teamName, count];
+          }).sort((a, b) => b[1] - a[1]);
           
           const maxCount = teamChampionships.length > 0 ? teamChampionships[0][1] : 0;
           
@@ -567,8 +589,8 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                 {teamChampionships.map(([teamName, count], index) => {
                   // "SAMET & BURAK" -> "SAMET | BURAK"
                   const displayName = teamName.replace(' & ', ' | ');
-                  const isLeader = count === maxCount;
-                  const isSecond = index === 1;
+                  const isLeader = count === maxCount && count > 0;
+                  const isSecond = index === 1 && count > 0;
                   
                   return (
                     <div 
@@ -624,13 +646,15 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                             ))}
                           </select>
                         ) : (
-                          <div className={`px-4 py-2 rounded-lg font-black text-xl ${
-                            isLeader 
-                              ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
-                              : 'bg-slate-700/50 text-slate-300'
-                          }`}>
-                            {count}
-                          </div>
+                          count > 0 && (
+                            <div className={`px-4 py-2 rounded-lg font-black text-xl ${
+                              isLeader 
+                                ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
+                                : 'bg-slate-700/50 text-slate-300'
+                            }`}>
+                              {count}
+                            </div>
+                          )
                         )}
                       </div>
                     </div>
