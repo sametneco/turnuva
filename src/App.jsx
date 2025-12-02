@@ -244,8 +244,7 @@ export default function App() {
             started: false, 
             name: name,
             mode: mode,
-            teamConfig: teamConfig, // Takım modu için: { teamA: {name, players: []}, teamB: {name, players: []} }
-            championshipAdded: false // Şampiyonluk sadece bir kez eklensin
+            teamConfig: teamConfig // Takım modu için: { teamA: {name, players: []}, teamB: {name, players: []} }
           }
         };
         
@@ -272,88 +271,6 @@ export default function App() {
     if (!isAdmin) return;
     try {
         console.log('=== TURNUVA SİLME BAŞLADI ===', id);
-        // 0. Turnuva verisini oku (şampiyonluk düşürmek için)
-        const tournamentDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', `t_${id}`));
-        console.log('Turnuva datanı okudum:', tournamentDoc.exists());
-        
-        if (tournamentDoc.exists()) {
-          const tournamentData = tournamentDoc.data();
-          console.log('Turnuva Data:', tournamentData);
-          console.log('Mode:', tournamentData.settings?.mode);
-          console.log('TeamConfig:', tournamentData.settings?.teamConfig);
-          
-          const champRef = doc(db, 'artifacts', appId, 'public', 'data', 'organization', 'championships');
-          const docSnap = await getDoc(champRef);
-          
-          if (docSnap.exists()) {
-            const currentData = docSnap.data().players || {};
-            console.log('Mevcut şampiyonluklar:', currentData);
-            const updatedChampionships = { ...currentData };
-            
-            // Eğer takım modu, championshipAdded=true ve seri tamamlanmışsa
-            if (tournamentData.settings?.mode === 'team' && 
-                tournamentData.settings?.teamConfig && 
-                tournamentData.settings?.championshipAdded === true) {
-              const { matches, settings } = tournamentData;
-              const teamConfig = settings.teamConfig;
-              
-              // Kazananı hesapla
-              let teamAWins = 0;
-              let teamBWins = 0;
-              matches.forEach(match => {
-                if (match.played) {
-                  const hScore = parseInt(match.homeScore);
-                  const aScore = parseInt(match.awayScore);
-                  if (!isNaN(hScore) && !isNaN(aScore)) {
-                    if (hScore > aScore) teamAWins++;
-                    else if (aScore > hScore) teamBWins++;
-                  }
-                }
-              });
-              
-              console.log('Takım skorları:', { teamAWins, teamBWins });
-              
-              const targetWins = teamConfig.extended ? 6 : 5;
-              const seriesWon = teamAWins >= targetWins || teamBWins >= targetWins;
-              
-              console.log('Seri bitti mi?:', seriesWon, 'Target:', targetWins, 'ChampionshipAdded:', settings.championshipAdded);
-              
-              if (seriesWon) {
-                const winner = teamAWins >= targetWins ? 'teamA' : 'teamB';
-                const winnerTeam = winner === 'teamA' ? teamConfig.teamA : teamConfig.teamB;
-                
-                // Kazanan takımın adından şampiyonluk düşür (sadece championshipAdded=true ise)
-                const teamName = winnerTeam.name; // Örn: "SAMET & BURAK"
-                console.log('Kazanan takım:', teamName, 'Mevcut sayı:', updatedChampionships[teamName]);
-                
-                if (updatedChampionships[teamName] > 0) {
-                  updatedChampionships[teamName]--;
-                  console.log('Yeni sayı:', updatedChampionships[teamName]);
-                }
-                // Eğer 0 olursa, key'i sil
-                if (updatedChampionships[teamName] === 0) {
-                  delete updatedChampionships[teamName];
-                  console.log('0 oldu, silindi');
-                }
-              }
-            }
-            
-            // Bireysel oyuncu şampiyonluklarını temizle (takım ismi içermeyenleri)
-            Object.keys(updatedChampionships).forEach(key => {
-              if (!key.includes(' & ')) {
-                delete updatedChampionships[key];
-              }
-              // 0 olanları da temizle
-              if (updatedChampionships[key] === 0) {
-                delete updatedChampionships[key];
-              }
-            });
-            
-            console.log('Güncellenecek şampiyonluklar:', updatedChampionships);
-            await setDoc(champRef, { players: updatedChampionships });
-            console.log('Şampiyonluklar turnuva silinirken güncellendi:', updatedChampionships);
-          }
-        }
         
         // 1. Registry'den sil
         const newRegistry = registry.filter(t => t.id !== id);
@@ -409,8 +326,8 @@ export default function App() {
     else alert('Hatalı PIN!'); // Simple alert is fine for non-critical UI feedback
   };
 
-  const updateChampionships = async (playerName) => {
-    console.log('updateChampionships çağrıldı:', { playerName, isAdmin });
+  const updateChampionships = async (teamName, newValue) => {
+    console.log('updateChampionships çağrıldı:', { teamName, newValue, isAdmin });
     if (!isAdmin) {
       console.log('Admin değil, işlem iptal edildi');
       return;
@@ -422,15 +339,19 @@ export default function App() {
       const docSnap = await getDoc(champRef);
       const currentData = docSnap.exists() ? docSnap.data().players || {} : {};
       
-      // Mevcut sayıya +1 ekle
-      const currentCount = currentData[playerName] || 0;
-      const newChampionships = {...currentData, [playerName]: currentCount + 1};
-      console.log('Mevcut data:', currentData);
+      // Yeni değeri set et
+      const newChampionships = {...currentData, [teamName]: newValue};
+      
+      // Eğer 0 ise sil
+      if (newValue === 0) {
+        delete newChampionships[teamName];
+      }
+      
       console.log('Yeni championships:', newChampionships);
       
       // Dökümanı oluştur veya güncelle
       await setDoc(champRef, { players: newChampionships });
-      console.log(`${playerName} şampiyonluk sayısı güncellendi: ${currentCount} -> ${currentCount + 1}`);
+      console.log(`${teamName} şampiyonluk sayısı güncellendi: ${newValue}`);
     } catch (e) {
       console.error("Şampiyonluk güncelleme hatası:", e);
       console.error("Hata detayı:", e.code, e.message);
@@ -691,14 +612,26 @@ function LobbyView({ loading, registry, isAdmin, setIsAdmin, adminPin, setAdminP
                           </div>
                         </div>
                         
-                        {/* Score Badge */}
-                        <div className={`px-4 py-2 rounded-lg font-black text-xl ${
-                          isLeader 
-                            ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
-                            : 'bg-slate-700/50 text-slate-300'
-                        }`}>
-                          {count}
-                        </div>
+                        {/* Score Badge / Dropdown */}
+                        {isAdmin ? (
+                          <select
+                            value={count}
+                            onChange={(e) => updateChampionships(teamName, parseInt(e.target.value))}
+                            className="px-3 py-2 rounded-lg font-black text-lg bg-slate-900 border-2 border-yellow-600/50 text-yellow-300 focus:border-yellow-500 outline-none cursor-pointer"
+                          >
+                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                              <option key={num} value={num} className="bg-slate-900 text-white font-bold">{num}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className={`px-4 py-2 rounded-lg font-black text-xl ${
+                            isLeader 
+                              ? 'bg-yellow-500/30 text-yellow-300 ring-2 ring-yellow-400/50 shadow-lg shadow-yellow-500/20' 
+                              : 'bg-slate-700/50 text-slate-300'
+                          }`}>
+                            {count}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -3593,27 +3526,6 @@ function TeamModeView({ settings, matches, teamSeriesStats, isAdmin, goBack, sav
   
   const teamA = settings.teamConfig.teamA;
   const teamB = settings.teamConfig.teamB;
-  
-  // Şampiyonluk sadece bir kez eklensin (Firebase'den oku)
-  const championshipAdded = settings.championshipAdded || false;
-  
-  // Seri kazananını şampiyonluklar ekle
-  useEffect(() => {
-    if (teamSeriesStats?.seriesWon && teamSeriesStats?.winner && !championshipAdded && isAdmin) {
-      const winnerTeam = teamSeriesStats.winner === 'teamA' ? teamA : teamB;
-      const teamName = winnerTeam.name; // Örn: "SAMET & BURAK"
-      
-      // Şampiyonluk ekle
-      updateChampionships(teamName);
-      
-      // Flag'i güncelle (bir daha ekleme)
-      const updatedSettings = {
-        ...settings,
-        championshipAdded: true
-      };
-      saveData({ players: [], matches, settings: updatedSettings });
-    }
-  }, [teamSeriesStats, teamA, teamB, updateChampionships, championshipAdded, isAdmin, matches, settings, saveData]);
   
   const handleAddMatch = async () => {
     const newMatch = {
